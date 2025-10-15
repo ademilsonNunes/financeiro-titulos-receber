@@ -1,0 +1,39 @@
+﻿<div class="app-shell" [class.sidebar-open]="showSidebar">
+  <po-toolbar p-title="Projeto Teste" [p-actions]="toolbarActions"></po-toolbar>`n  <div class="env-badge"><po-tag [p-value]="envLabel"></po-tag></div>
+
+  <div class="content-area">
+    <aside class="sidebar" aria-label="Menu lateral">
+      <po-menu [p-menus]="menus" [p-collapsed]="false" [p-filter]="true" [p-automatic-toggle]="false">
+        <div *p-menu-header-template class="po-p-2 po-font-title">
+          <p>Logistica</p>
+        </div>
+      </po-menu>
+    </aside>
+    <main class="main">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+  <po-modal #tokenModal p-title="Definir Bearer Token">
+    <div class="token-form">
+      <po-textarea name="token" p-label="Token (colar existente)" [(ngModel)]="tokenInput" [p-rows]="4"></po-textarea>
+      <div class="row" style="margin-top: 12px;">
+        <po-input name="username" p-label="Usuário" [(ngModel)]="username"></po-input>
+      </div>
+      <div class="row">
+        <po-password name="password" p-label="Senha" [(ngModel)]="password"></po-password>
+      </div>
+      <div class="actions" style="margin-top: 12px; display: flex; gap: 8px;">
+        <button po-button p-type="primary" p-label="Salvar Token" (click)="saveToken()"></button>
+        <button po-button p-type="secondary" p-label="Gerar Token" [disabled]="loadingToken" (click)="generateToken()"></button>
+        <button po-button p-type="link" p-label="Fechar" (click)="tokenModal.close()"></button>
+      </div>
+    </div>
+  </po-modal>
+</div>
+
+
+
+
+
+

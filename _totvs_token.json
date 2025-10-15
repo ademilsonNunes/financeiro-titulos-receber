@@ -1,0 +1,17 @@
+﻿{
+    "acquiredAt":  "2025-10-14T13:21:59",
+    "baseUrl":  "http://10.0.132.4:8097",
+    "grant":  "PASSWORD",
+    "method":  "POST",
+    "url":  "http://10.0.132.4:8097/app-root/api/oauth2/v1/token",
+    "username":  "admin",
+    "normalizedRoot":  "http://10.0.132.4:8097/app-root",
+    "response":  {
+                     "access_token":  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InBKd3RQdWJsaWNLZXlGb3IyNTYifQ.eyJpc3MiOiJUT1RWUy1BRFZQTC1GV0pXVCIsInN1YiI6IkFkbWluaXN0cmFkb3IiLCJpYXQiOjE3NjA0NTg5MDUsInVzZXJpZCI6IjAwMDAwMCIsImV4cCI6MTc2MDQ2MjUwNSwiZW52SWQiOiJQUk9EVlMxMl8yNDEwUFJEIn0.EaHJ4Va7IZTxofnC1JvWs_7sA_oCfSv6DjJ6ZVmVUJEpcH_I8SypneNBtw2FPWmdctx4WHUSZ8SggXJzuVtIBQN54Rp1P6E-TtUQTOxKIDp7kniOqGrZn7-D23ujsoX1ImyWLXBGHepgHcHavHz6MULSvwzRYb3GswuF23Dy5o8W3RGQQ3j6oNj6rjBPwmFS_cMEZBOiiE0-pIfNDy1xK3RHY6XiC2WzUmQ8FqyN-r9haJpaMlc4R7uLwOretwarXGk2ZaRQpx3ImMxHlX1jP4S5tlteSCc0QxGWk-QhzTwRX8C73RTw7QjTRoldlLSQXu0z31RFrYcqfme8BxmQ0w",
+                     "refresh_token":  "BdmNpdeeUBgI6LMW6WoUflxy.Gdq84_uNMFglj6wY_mx7NWNbgh5LXC3_yHKS_xm1JVZGNnKqP-DUEDUgZqEpmGsvETUphH22L_s8ay3-J02Q_zIqMt3eCj_0GDYoQ0u3tBZCk8v8IMW0rVjfEseyGE-SH3N99pWbsQZyn-A4PJGi84icighl_5oeypfI-T3yGzuWZPMwaHcI9WeWOWw_4HCN3Esf97IB1f0S9wAzysWR95BIzNiwIboIGx9sRXNTsqDQDbi6Qh4.JoYLXw52tZDjxhplsEDN1pCg3URyI8R5EygS0CI8vNARktH8qGV1-THR3xkQgZqCQVTEZyCju_e0eMU_QlbByZR-F6V9yWHgSR_X7sOkrw1n-N07NcwMIiQsXH2cW8bhguy6ph3lHYQioaiFJZ12XCZFJQoPgZIZSXP7lpECA8w0p4_uVL0kyZkdJtBDneWotGTAfxounSBScKiiPZkPKN0CwGON-7I8olIvlb63ZFCv6PZUV1kj19l67jCSfwLySYVmybGHCJLUlHPJ_-fJG2jVRSpvkb7m8odT276oOFwVbxCod8tYidgcaqaPbjvCumb2ZOFRzcPqwbCiyNxndg",
+                     "scope":  "default",
+                     "token_type":  "Bearer",
+                     "expires_in":  3600,
+                     "hasMFA":  false
+                 }
+}

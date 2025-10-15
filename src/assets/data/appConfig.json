@@ -1,0 +1,6 @@
+﻿{
+    "productLine":  "Protheus",
+    "apiBasePath":  "/api",
+    "oauthTokenEndpoint":  "/api/oauth2/v1/token",
+    "absoluteBaseUrl":  "http://10.0.132.4:8097"
+}

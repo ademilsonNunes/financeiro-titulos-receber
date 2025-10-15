@@ -1,0 +1,23 @@
+/* Ajustes de identidade visual aproximando dos prints TOTVS */
+
+/* Barra superior e fontes */
+:root {
+  --brand-primary: #008AB0; /* azul TOTVS aproximado */
+}
+
+po-toolbar {
+  background: var(--brand-primary);
+}
+
+/* Títulos de página */
+po-page-default ::ng-deep .po-page-default-header {
+  padding-bottom: 8px;
+}
+
+/* Tags de status com cores mais próximas */
+po-tag[p-value="ENCERRADO"] {
+  --po-color: #d9534f;
+}
+po-tag[p-value="SEM RESGATE"] {
+  --po-color: #5cb85c;
+}
