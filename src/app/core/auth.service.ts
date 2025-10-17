@@ -24,14 +24,20 @@ export class AuthService {
   private getTokenUrl(): string {
     const fromCfg = this.appConfig.get('oauthTokenEndpoint') as string | undefined;
     const endpoint = (fromCfg ?? environment.oauthTokenEndpoint ?? '/api/oauth2/v1/token');
+
+    if (/^https?:\/\//i.test(endpoint)) {
+      // Endpoint já absoluto -> apenas remove barras duplicadas ao final.
+      return endpoint.replace(/\/+$/, '');
+    }
+
     const path = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
     const abs = this.appConfig.get('absoluteBaseUrl') as string | undefined;
-    // Use absolute base only when NOT running on localhost OR in production.
+    // Use absolute base only when NÃO estiver rodando em localhost OU quando for produção.
     const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
     if (abs && /^https?:\/\//i.test(abs) && (environment.production || !isLocal)) {
       return `${abs.replace(/\/+$/,'')}${path}`;
     }
-    return path; // dev: use proxy; prod in Protheus: interceptor adds /app-root
+    return path; // dev: usa proxy; produção no Protheus: interceptor adiciona /app-root
   }
 
   constructor() {
@@ -66,11 +72,12 @@ export class AuthService {
   }
 
   requestToken(username: string, password: string): Observable<OAuthTokenResponse> {
-    const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': '*/*' });
+    const acceptHeaders = new HttpHeaders({ Accept: '*/*' });
+    const formHeaders = acceptHeaders.set('Content-Type', 'application/x-www-form-urlencoded');
 
     const postWith = (grant: string) => {
       const form = new HttpParams({ fromObject: { grant_type: grant, username, password } });
-      return this.http.post<OAuthTokenResponse>(this.getTokenUrl(), form.toString(), { headers }).pipe(
+      return this.http.post<OAuthTokenResponse>(this.getTokenUrl(), form.toString(), { headers: formHeaders }).pipe(
         tap(resp => this.handleTokenResponse('requestToken POST ' + grant, resp))
       );
     };
@@ -78,23 +85,23 @@ export class AuthService {
     const postWithQuery = (grant: string) => {
       const qs = new HttpParams({ fromObject: { grant_type: grant, username, password } }).toString();
       const url = `${this.getTokenUrl()}?${qs}`;
-      return this.http.post<OAuthTokenResponse>(url, null, { headers }).pipe(
+      return this.http.post<OAuthTokenResponse>(url, null, { headers: acceptHeaders }).pipe(
         tap(resp => this.handleTokenResponse('requestToken POST-QUERY ' + grant, resp))
       );
     };
 
     const getWith = (grant: string) => {
       const qs = new HttpParams({ fromObject: { grant_type: grant, username, password } });
-      return this.http.get<OAuthTokenResponse>(this.getTokenUrl(), { params: qs }).pipe(
+      return this.http.get<OAuthTokenResponse>(this.getTokenUrl(), { params: qs, headers: acceptHeaders }).pipe(
         tap(resp => this.handleTokenResponse('requestToken GET ' + grant, resp))
       );
     };
 
-    return postWith('PASSWORD').pipe(
-      catchError((err) => { this.debugLog('requestToken POST PASSWORD error', null); console.error(err); return postWithQuery('PASSWORD'); }),
-      catchError((err) => { this.debugLog('requestToken POST-QUERY PASSWORD error', null); console.error(err); return postWith('password'); }),
-      catchError((err) => { this.debugLog('requestToken POST password error', null); console.error(err); return postWithQuery('password'); }),
-      catchError((err) => { this.debugLog('requestToken POST-QUERY password error', null); console.error(err); return getWith('PASSWORD'); }),
+    return postWithQuery('PASSWORD').pipe(
+      catchError((err) => { this.debugLog('requestToken POST-QUERY PASSWORD error', null); console.error(err); return postWith('PASSWORD'); }),
+      catchError((err) => { this.debugLog('requestToken POST PASSWORD error', null); console.error(err); return postWithQuery('password'); }),
+      catchError((err) => { this.debugLog('requestToken POST-QUERY password error', null); console.error(err); return postWith('password'); }),
+      catchError((err) => { this.debugLog('requestToken POST password error', null); console.error(err); return getWith('PASSWORD'); }),
       catchError((err) => { this.debugLog('requestToken GET PASSWORD error', null); console.error(err); return getWith('password'); }),
     );
   }
