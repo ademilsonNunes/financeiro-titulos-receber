@@ -23,20 +23,25 @@ export class AuthService {
 
   private getTokenUrl(): string {
     const fromCfg = this.appConfig.get('oauthTokenEndpoint') as string | undefined;
-    const endpoint = (fromCfg ?? environment.oauthTokenEndpoint ?? '/api/oauth2/v1/token');
+    const endpoint = fromCfg ?? environment.oauthTokenEndpoint ?? '/api/oauth2/v1/token';
 
     if (/^https?:\/\//i.test(endpoint)) {
       // Endpoint já absoluto -> apenas remove barras duplicadas ao final.
       return endpoint.replace(/\/+$/, '');
     }
 
-    const path = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
+    const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
     const abs = this.appConfig.get('absoluteBaseUrl') as string | undefined;
-    // Use absolute base only when NÃO estiver rodando em localhost OU quando for produção.
-    const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
-    if (abs && /^https?:\/\//i.test(abs) && (environment.production || !isLocal)) {
-      return `${abs.replace(/\/+$/,'')}${path}`;
+
+    if (abs && /^https?:\/\//i.test(abs)) {
+      const normalizedBase = abs.replace(/\/+$/, '');
+      if (/^\/api(\/|$)/i.test(path)) {
+        // Quando o caminho apontar para a API REST padrão, complemente com /app-root.
+        return `${normalizedBase}/app-root${path}`;
+      }
+      return `${normalizedBase}${path}`;
     }
+
     return path; // dev: usa proxy; produção no Protheus: interceptor adiciona /app-root
   }
 
