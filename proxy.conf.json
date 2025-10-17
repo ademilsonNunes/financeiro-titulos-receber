@@ -1,9 +1,12 @@
 {
   "/api": {
-    "target": "http://10.0.132.4:8097/app-root/api",
+    "target": "http://10.0.132.4:8097/app-root/",
     "secure": false,
-    "changeOrigin": false,
-    "logLevel": "debug"
+    "changeOrigin": true,
+    "logLevel": "debug",
+    "pathRewrite": {
+      "^/api": "http://10.0.132.4:8097/app-root/"
+    }
   }
 }
 

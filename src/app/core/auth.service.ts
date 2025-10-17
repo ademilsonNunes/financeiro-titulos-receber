@@ -26,10 +26,12 @@ export class AuthService {
     const endpoint = (fromCfg ?? environment.oauthTokenEndpoint ?? '/api/oauth2/v1/token');
     const path = endpoint.startsWith('/') ? endpoint : ('/' + endpoint);
     const abs = this.appConfig.get('absoluteBaseUrl') as string | undefined;
-    if (abs && /^https?:\/\//i.test(abs)) {
+    // Use absolute base only when NOT running on localhost OR in production.
+    const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
+    if (abs && /^https?:\/\//i.test(abs) && (environment.production || !isLocal)) {
       return `${abs.replace(/\/+$/,'')}${path}`;
     }
-    return path; // proxy/Protheus interceptor cuidam do prefixo
+    return path; // dev: use proxy; prod in Protheus: interceptor adds /app-root
   }
 
   constructor() {
