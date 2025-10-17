@@ -64,11 +64,18 @@ export class TitulosService {
   private getApiBasePath(): string {
     const abs = this.appConfig.get('absoluteBaseUrl') as string | undefined;
     if (abs && /^https?:\/\//i.test(abs)) {
-      return `${abs.replace(/\/+$/,'')}/app-root/api`;
+      return `${abs.replace(/\/+$/, '')}/app-root/api`;
     }
+
     const fromCfg = this.appConfig.get('apiBasePath') as string | undefined;
     const raw = (fromCfg ?? environment.apiBasePath ?? '/api');
-    return raw.startsWith('/') ? raw : ('/' + raw);
+
+    if (/^https?:\/\//i.test(raw)) {
+      return raw.replace(/\/+$/, '');
+    }
+
+    const normalized = raw.startsWith('/') ? raw : ('/' + raw);
+    return normalized.replace(/\/+$/, '');
   }
 
   list(filters: TituloFilters = {}): Observable<TituloReceberDTO[]> {
