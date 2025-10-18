@@ -1,6 +1,7 @@
 ﻿import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, tap } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, tap, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AppConfigService } from './app-config.service';
 
@@ -109,6 +110,19 @@ export class AuthService {
       catchError((err) => { this.debugLog('requestToken POST password error', null); console.error(err); return getWith('PASSWORD'); }),
       catchError((err) => { this.debugLog('requestToken GET PASSWORD error', null); console.error(err); return getWith('password'); }),
     );
+  }
+
+  // Helper: try to refresh dev token if credentials are configured in environment
+  refreshDevTokenIfConfigured(): Observable<string | null> {
+    const u = (environment as any).devUsername || '';
+    const p = (environment as any).devPassword || '';
+    if (u && p) {
+      return this.requestToken(u, p).pipe(
+        tap((resp) => { const t = resp?.access_token; if (t) this.setToken(t); }),
+        map((resp) => (resp?.access_token ?? null) as string | null)
+      );
+    }
+    return of(null);
   }
 
   private handleTokenResponse(ctx: string, resp: OAuthTokenResponse | null | undefined) {

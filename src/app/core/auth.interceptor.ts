@@ -1,7 +1,8 @@
-﻿import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
+import { catchError, switchMap, of, throwError } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
@@ -45,5 +46,25 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     req = req.clone({ setHeaders: headers });
   }
 
-  return next(req);
+  return next(req).pipe(
+    catchError((err: any) => {
+      if (shouldAttach && err?.status === 401 && !isTokenEndpoint) {
+        // Try to refresh dev token and retry the request once
+        return auth.refreshDevTokenIfConfigured().pipe(
+          switchMap((newToken) => {
+            if (newToken) {
+              const hdrs: Record<string, string> = { Authorization: `Bearer ${newToken}` };
+              if (!req.headers.has('Accept')) hdrs['Accept'] = '*/*';
+              const retried = req.clone({ setHeaders: hdrs });
+              return next(retried);
+            } else {
+              auth.clearToken();
+              return throwError(() => err);
+            }
+          })
+        );
+      }
+      return throwError(() => err);
+    })
+  );
 };

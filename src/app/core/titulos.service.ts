@@ -1,4 +1,4 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -38,10 +38,6 @@ export interface TituloFilters {
   empresa?: string;
   nf?: string;
   codigoCliente?: string;
-  nomeCliente?: string;
-  uf?: string;
-  municipio?: string;
-  vendedor?: string;
   formaPagamento?: string;
   statusCanhotaRecebido?: string;
   statusCanhotaRetorno?: string;
@@ -81,9 +77,15 @@ export class TitulosService {
   list(filters: TituloFilters = {}): Observable<TituloReceberDTO[]> {
     let params = new HttpParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        params = params.set(key, String(value));
+      const hasValue = value !== undefined && value !== null && value !== '';
+      if (!hasValue) return;
+      let val: string;
+      if (value instanceof Date) {
+        val = value.toISOString().substring(0, 10); // yyyy-MM-dd
+      } else {
+        val = String(value).trim();
       }
+      params = params.set(key, val);
     });
 
     const headers = new HttpHeaders({

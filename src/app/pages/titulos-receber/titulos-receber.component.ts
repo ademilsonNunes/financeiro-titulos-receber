@@ -28,11 +28,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     <div class="filters">
       <po-input name="nf" p-label="Nota Fiscal" [(ngModel)]="filters.nf"></po-input>
       <po-input name="codigoCliente" p-label="Código Cliente" [(ngModel)]="filters.codigoCliente"></po-input>
-      <po-input name="nomeCliente" p-label="Nome Cliente" [(ngModel)]="filters.nomeCliente"></po-input>
-      <po-select name="uf" p-label="UF" [p-options]="ufs" [ngModel]="filters.uf" (ngModelChange)="filters.uf = $event"></po-select>
-      <po-input name="municipio" p-label="Município" [(ngModel)]="filters.municipio"></po-input>
-      <po-input name="vendedor" p-label="Vendedor" [(ngModel)]="filters.vendedor"></po-input>
-      <po-input name="formaPagamento" p-label="Forma de Pagamento" [(ngModel)]="filters.formaPagamento"></po-input>
+      <po-input name="formaPagamento" p-label="Forma de Pagamento" [(ngModel)]="filters.formaPagamento" *ngIf="false"></po-input>
       <div class="date-range">
         <po-datepicker name="dataEmissaoInicio" p-label="Emissão Início" [(ngModel)]="filters.dataEmissaoInicio"></po-datepicker>
         <po-datepicker name="dataEmissaoFim" p-label="Emissão Fim" [(ngModel)]="filters.dataEmissaoFim"></po-datepicker>
@@ -56,24 +52,35 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
     <po-loading *ngIf="loading"></po-loading>
 
-    <po-table [p-auto-collapse]="true" [p-striped]="true" [p-sort]="true" [p-hide-table-search]="false" [p-actions-right]="true" [p-columns]="columns" [p-items]="titulos" [p-actions]="tableActions" (p-row-click)="openDetails($any($event))"></po-table>
+    <po-table [p-auto-collapse]="true" [p-striped]="true" [p-sort]="true" [p-hide-table-search]="false" [p-actions-right]="true" [p-columns]="columns" [p-items]="pagedTitulos" [p-actions]="tableActions" (p-row-click)="openDetails($any($event))"></po-table>
+
+    <div class="pagination">
+      <po-button-group [p-buttons]="paginationButtons"></po-button-group>
+      <span class="page-info">Página {{ page }} de {{ totalPages }}</span>
+    </div>
 
     <po-modal #detailsModal p-title="Detalhes do Título">
       <div class="details-content" *ngIf="selected">
         <div class="row"><strong>NF:</strong> {{ selected.nf }} | <strong>Parcela:</strong> {{ selected.parcela }}</div>
-        <div class="row"><strong>Cliente:</strong> {{ selected.codigoCliente }} - {{ selected.nomeCliente }}</div>
+        <div class="row"><strong>Cliente:</strong> {{ selected.codigoCliente }}</div>
         <div class="row"><strong>Valor:</strong> {{ selected.valor | currency:'BRL':'symbol-narrow' }} | <strong>Saldo:</strong> {{ selected.saldo | currency:'BRL':'symbol-narrow' }}</div>
         <div class="row"><strong>Emissão:</strong> {{ selected.dataEmissao }} | <strong>Vencimento:</strong> {{ selected.dataVencimento }}</div>
         <div class="row"><strong>Forma Pagamento:</strong> {{ selected.formaPagamento }} | <strong>Condição:</strong> {{ selected.condicaoPagamento }}</div>
-        <div class="row"><strong>UF:</strong> {{ selected.uf }} | <strong>Município:</strong> {{ selected.municipio }}</div>
+    
         <div class="row"><strong>Status Recebido:</strong> <po-tag [p-value]="selected.statusCanhotaRecebido"></po-tag></div>
         <div class="row"><strong>Status Retorno:</strong> <po-tag [p-value]="selected.statusCanhotaRetorno"></po-tag></div>
         <div class="row"><strong>Chave NFe:</strong> {{ selected.chaveNFe }}</div>
       </div>
-      <div class="modal-actions">
-        <button po-button p-label="Confirmar Baixa" p-type="primary" (click)="confirmBaixa()"></button>
-        <button po-button p-label="Cancelar Baixa" p-type="danger" (click)="cancelBaixa()"></button>
+      <div class="modal-actions" *ngIf="!showBaixaInput">
+        <button po-button p-label="Confirmar Recebimento" p-type="primary" (click)="startBaixa()"></button>
         <button po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></button>
+      </div>
+      <div class="baixa-form" *ngIf="showBaixaInput">
+        <po-datepicker name="dataRecebimentoCliente" p-label="Data de Recebimento do Cliente" [(ngModel)]="baixaDate"></po-datepicker>
+        <div class="modal-actions">
+          <button po-button p-label="Salvar Baixa" p-type="primary" (click)="submitBaixa()"></button>
+          <button po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></button>
+        </div>
       </div>
     </po-modal>
   </po-page-default>
@@ -92,23 +99,22 @@ export class TitulosReceberComponent implements OnInit {
   titulos: TituloReceberDTO[] = [];
   loading = false;
   selected?: TituloReceberDTO;
-  ufs = [
-    { label: 'AC', value: 'AC' }, { label: 'AL', value: 'AL' }, { label: 'AP', value: 'AP' },
-    { label: 'AM', value: 'AM' }, { label: 'BA', value: 'BA' }, { label: 'CE', value: 'CE' },
-    { label: 'DF', value: 'DF' }, { label: 'ES', value: 'ES' }, { label: 'GO', value: 'GO' },
-    { label: 'MA', value: 'MA' }, { label: 'MG', value: 'MG' }, { label: 'MS', value: 'MS' },
-    { label: 'MT', value: 'MT' }, { label: 'PA', value: 'PA' }, { label: 'PB', value: 'PB' },
-    { label: 'PE', value: 'PE' }, { label: 'PI', value: 'PI' }, { label: 'PR', value: 'PR' },
-    { label: 'RJ', value: 'RJ' }, { label: 'RN', value: 'RN' }, { label: 'RO', value: 'RO' },
-    { label: 'RR', value: 'RR' }, { label: 'RS', value: 'RS' }, { label: 'SC', value: 'SC' },
-    { label: 'SE', value: 'SE' }, { label: 'SP', value: 'SP' }, { label: 'TO', value: 'TO' },
-  ];
+  showBaixaInput = false;
+  baixaDate?: Date;
+
+  // Paginação
+  page = 1;
+  pageSize = 50;
+  totalItems = 0;
+  pagedTitulos: TituloReceberDTO[] = [];
+  paginationButtons: PoButtonGroupItem[] = [];
+
+  get totalPages(): number { return Math.max(1, Math.ceil(this.totalItems / this.pageSize)); }
 
   columns = [
     { property: 'nf', label: 'NF' },
     { property: 'parcela', label: 'Parcela' },
     { property: 'codigoCliente', label: 'Cod. Cliente' },
-    { property: 'nomeCliente', label: 'Cliente' },
     { property: 'dataEmissao', label: 'Emissão' },
     { property: 'dataVencimento', label: 'Vencimento' },
     { property: 'valor', label: 'Valor', type: 'currency', format: 'BRL' },
@@ -127,7 +133,7 @@ export class TitulosReceberComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    // Pesquisa automaticamente se jÃ¡ houver token e tambÃ©m quando um novo token for definido
+    // Pesquisa automaticamente se já houver token e também quando um novo token for definido
     if (this.authService.getToken()) {
       this.search();
     } else {
@@ -137,6 +143,8 @@ export class TitulosReceberComponent implements OnInit {
     this.authService.token$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(t => { if (t) this.search(); });
+
+    this.updatePaginationButtons();
   }
 
   search(): void {
@@ -148,28 +156,144 @@ export class TitulosReceberComponent implements OnInit {
     this.loading = true;
     this.service.list(this.filters).subscribe({
       next: data => {
-        this.titulos = data ?? [];
+        const raw = data ?? [];
+        const filtered = this.filterItems(raw);
+        const ordered = this.sortByVencimentoAsc(filtered);
+        this.titulos = ordered;
+        this.totalItems = ordered.length;
+        this.page = 1;
+        this.updatePagedItems();
+        this.updatePaginationButtons();
         this.loading = false;
       },
       error: err => {
         this.loading = false;
-        this.poNotification.error('Erro ao buscar tÃ­tulos');
+        this.poNotification.error('Erro ao buscar títulos');
         console.error(err);
       }
     });
   }
+
+  updatePagedItems(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.pagedTitulos = this.titulos.slice(start, end);
+  }
+
+  private filterItems(items: TituloReceberDTO[]): TituloReceberDTO[] {
+    const f = this.filters || {};
+    const hasAny = Object.entries(f).some(([_, v]) => v !== undefined && v !== null && v !== '');
+    if (!hasAny) return items;
+
+    const emiIni = this.parseDateLoose(f.dataEmissaoInicio);
+    const emiFim = this.parseDateLoose(f.dataEmissaoFim);
+    const venIni = this.parseDateLoose(f.dataVencimentoInicio);
+    const venFim = this.parseDateLoose(f.dataVencimentoFim);
+
+    const eq = (a: any, b: any) => String(a ?? '').trim() === String(b ?? '').trim();
+
+    return items.filter((it) => {
+      if (f.nf && !eq(it.nf, f.nf)) return false;
+      if (f.codigoCliente && !eq(it.codigoCliente, f.codigoCliente)) return false;
+      if (f.formaPagamento && !eq(it.formaPagamento, f.formaPagamento)) return false;
+      if (f.statusCanhotaRecebido && !eq(it.statusCanhotaRecebido, f.statusCanhotaRecebido)) return false;
+      if (f.statusCanhotaRetorno && !eq(it.statusCanhotaRetorno, f.statusCanhotaRetorno)) return false;
+
+      const emi = this.parseDateLoose(it.dataEmissao);
+      const ven = this.parseDateLoose(it.dataVencimento);
+
+      if (emiIni && emi && emi.getTime() < emiIni.getTime()) return false;
+      if (emiFim && emi && emi.getTime() > emiFim.getTime()) return false;
+      if (venIni && ven && ven.getTime() < venIni.getTime()) return false;
+      if (venFim && ven && ven.getTime() > venFim.getTime()) return false;
+
+      if ((emiIni || emiFim) && !emi) return false;
+      if ((venIni || venFim) && !ven) return false;
+
+      return true;
+    });
+  }
+
+  private parseDateLoose(s: any): Date | null {
+    if (!s) return null;
+    if (s instanceof Date) return s;
+    if (typeof s === 'string') {
+      const t = s.trim();
+      const dIso = new Date(t);
+      if (!isNaN(dIso.getTime())) return dIso;
+      const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) {
+        const d = Number(m[1]), mo = Number(m[2]) - 1, y = Number(m[3]);
+        const dd = new Date(y, mo, d);
+        if (!isNaN(dd.getTime())) return dd;
+      }
+    }
+    return null;
+  }
+
+  private sortByVencimentoAsc(items: TituloReceberDTO[]): TituloReceberDTO[] {
+    const safeStr = (s: any) => String(s ?? '').trim();
+    const numOrStrCmp = (x: any, y: any) => {
+      const nx = Number(safeStr(x));
+      const ny = Number(safeStr(y));
+      const xIsNum = !isNaN(nx);
+      const yIsNum = !isNaN(ny);
+      if (xIsNum && yIsNum) return nx - ny;
+      return safeStr(x).localeCompare(safeStr(y), 'pt-BR', { numeric: true, sensitivity: 'base' });
+    };
+    return [...items].sort((a, b) => {
+      const va = this.parseDateLoose(a.dataVencimento)?.getTime() ?? Number.POSITIVE_INFINITY;
+      const vb = this.parseDateLoose(b.dataVencimento)?.getTime() ?? Number.POSITIVE_INFINITY;
+      if (va !== vb) return va - vb;
+      const nfCmp = numOrStrCmp(a.nf, b.nf);
+      if (nfCmp !== 0) return nfCmp;
+      return numOrStrCmp(a.codigoCliente, b.codigoCliente);
+    });
+  }
+
+  private updatePaginationButtons(): void {
+    const last = this.totalPages;
+    this.paginationButtons = [
+      { label: 'Primeira', action: () => this.goToPage(1), disabled: this.page <= 1 },
+      { label: 'Anterior', action: () => this.prevPage(), disabled: this.page <= 1 },
+      { label: 'Próxima', action: () => this.nextPage(), disabled: this.page >= last },
+      { label: 'Última', action: () => this.goToPage(last), disabled: this.page >= last },
+    ];
+  }
+
+  private prevPage(): void { if (this.page > 1) { this.page--; this.updatePagedItems(); this.updatePaginationButtons(); } }
+  private nextPage(): void { const last = this.totalPages; if (this.page < last) { this.page++; this.updatePagedItems(); this.updatePaginationButtons(); } }
+  private goToPage(p: number): void { const last = this.totalPages; if (p < 1) p = 1; if (p > last) p = last; this.page = p; this.updatePagedItems(); this.updatePaginationButtons(); }
 
   clearFilters(): void { this.filters = {}; }
 
   openDetails(evt: any): void {
     const item = evt && evt.row ? (evt.row as TituloReceberDTO) : (evt as TituloReceberDTO);
     this.selected = item;
+    this.showBaixaInput = false;
+    this.baixaDate = undefined;
     this.detailsModal?.open();
   }
 
-  confirmBaixa(): void { this.poNotification.success('Baixa confirmada (aÃ§Ã£o a implementar)'); }
+  startBaixa(): void {
+    this.showBaixaInput = true;
+    if (!this.baixaDate) this.baixaDate = new Date();
+  }
 
-  cancelBaixa(): void { this.poNotification.warning('Baixa cancelada (aÃ§Ã£o a implementar)'); }
+  submitBaixa(): void {
+    if (!this.baixaDate) {
+      this.poNotification.warning('Informe a data de recebimento do cliente.');
+      return;
+    }
+    const dateStr = this.baixaDate.toISOString().substring(0, 10);
+    if (this.selected) {
+      (this.selected as any).dataRecebimentoCliente = dateStr;
+      (this.selected as any).statusCanhotaRecebido = 'Baixado';
+    }
+    this.poNotification.success('Baixa confirmada.');
+    this.showBaixaInput = false;
+    this.detailsModal?.close();
+  }
 }
 
 
