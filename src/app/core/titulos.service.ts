@@ -149,5 +149,39 @@ export class TitulosService {
   getByNF(nf: string): Observable<TituloReceberDTO[]> {
     return this.list({ nf });
   }
+
+  /**
+   * Confirma o recebimento (baixa) do canhoto via API.
+   * Endpoint: PUT /api/v1/titulos-receber/:nf/:parcela/confirmar-entrega
+   * Body: { dataRecebimento: "YYYYMMDD" }
+   */
+  confirmarRecebimento(nf: string, parcela: string, dataRecebimento: string): Observable<any> {
+    if (!nf || !parcela) {
+      throw new Error('NF e parcela são obrigatórias');
+    }
+    if (!/^\d{8}$/.test(String(dataRecebimento))) {
+      throw new Error('Data deve estar no formato YYYYMMDD (8 dígitos)');
+    }
+    const url = `${this.base}/${encodeURIComponent(String(nf))}/${encodeURIComponent(String(parcela))}/confirmar-entrega`;
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json',
+      Accept: '*/*',
+      'X-Requested-With': 'XMLHttpRequest',
+    });
+    return this.http
+      .put(url, { dataRecebimento }, { headers, observe: 'response', responseType: 'text' })
+      .pipe(
+        map((resp) => {
+          const body = resp.body || '';
+          let parsed: any = null;
+          try {
+            parsed = JSON.parse(String(body).replace(/^\uFEFF/, '').trim());
+          } catch {
+            parsed = { message: String(body).substring(0, 200) };
+          }
+          return { status: resp.status, ok: resp.status >= 200 && resp.status < 300, data: parsed };
+        })
+      );
+  }
 }
 

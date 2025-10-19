@@ -120,7 +120,7 @@ import { forkJoin } from 'rxjs';
       <div class="baixa-form" *ngIf="showBaixaInput">
         <po-datepicker name="dataRecebimentoCliente" p-label="Data de Recebimento do Cliente" [(ngModel)]="baixaDate"></po-datepicker>
         <div class="modal-actions">
-          <po-button p-label="Salvar Baixa" p-type="primary" (click)="submitBaixa()"></po-button>
+          <po-button p-label="Salvar Baixa" p-type="primary" (click)="submitBaixa()" [p-disabled]="baixaSaving"></po-button>
           <po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></po-button>
         </div>
       </div>
@@ -149,6 +149,7 @@ export class TitulosReceberComponent implements OnInit {
   selected?: TituloReceberDTO;
   showBaixaInput = false;
   baixaDate?: Date;
+  baixaSaving = false;
 
   // Debug/layout metrics
   showDebug = false;
@@ -483,14 +484,48 @@ export class TitulosReceberComponent implements OnInit {
       this.poNotification.warning('Informe a data de recebimento do cliente.');
       return;
     }
-    const dateStr = this.baixaDate.toISOString().substring(0, 10);
-    if (this.selected) {
-      (this.selected as any).dataRecebimentoCliente = dateStr;
-      (this.selected as any).statusCanhotaRecebido = 'Baixado';
+    if (!this.selected) {
+      this.poNotification.warning('Nenhum título selecionado.');
+      return;
     }
-    this.poNotification.success('Baixa confirmada.');
-    this.showBaixaInput = false;
-    this.detailsModal?.close();
+    // Formatar para YYYYMMDD
+    const y = this.baixaDate.getFullYear();
+    const m = String(this.baixaDate.getMonth() + 1).padStart(2, '0');
+    const d = String(this.baixaDate.getDate()).padStart(2, '0');
+    const yyyymmdd = `${y}${m}${d}`;
+
+    const nf = String(this.selected.nf ?? '').trim();
+    const parcela = String(this.selected.parcela ?? '').trim();
+    if (!nf || !parcela) {
+      this.poNotification.error('NF e parcela são obrigatórios para confirmar o recebimento.');
+      return;
+    }
+
+    this.baixaSaving = true;
+    this.service.confirmarRecebimento(nf, parcela, yyyymmdd).subscribe({
+      next: (resp) => {
+        if (resp?.ok) {
+          // Atualiza UI localmente
+          const dateIso = `${y}-${m}-${d}`; // manter apresentação yyyy-MM-dd
+          (this.selected as any).dataRecebimentoCliente = dateIso;
+          (this.selected as any).statusCanhotaRecebido = 'Baixado';
+          this.poNotification.success('Baixa confirmada com sucesso.');
+          this.showBaixaInput = false;
+          this.detailsModal?.close();
+          // Opcional: recarregar browse para refletir dados do servidor
+          this.search();
+        } else {
+          const msg = resp?.data?.message || 'Falha ao confirmar recebimento.';
+          this.poNotification.error(msg);
+        }
+        this.baixaSaving = false;
+      },
+      error: (err) => {
+        const msg = err?.error?.message || err?.message || 'Erro ao confirmar recebimento.';
+        this.poNotification.error(msg);
+        this.baixaSaving = false;
+      }
+    });
   }
 
   onTransportadoraChanged(val: any): void {
