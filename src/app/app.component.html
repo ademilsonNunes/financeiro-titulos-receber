@@ -1,15 +1,18 @@
-﻿<div class="app-shell" [class.sidebar-open]="showSidebar">
-  <po-toolbar p-title="Projeto Teste" [p-actions]="toolbarActions"></po-toolbar>`n  <div class="env-badge"><po-tag [p-value]="envLabel"></po-tag></div>
-
+<div class="app-shell" [class.sidebar-open]="showSidebar">
+  <!--<po-toolbar p-title="Gestão de Canhotos" [p-actions]="toolbarActions"></po-toolbar>`n  <div class="env-badge"><po-tag [p-value]="envLabel"></po-tag></div> -->
   <div class="content-area">
-    <aside class="sidebar" aria-label="Menu lateral">
-      <po-menu [p-menus]="menus" [p-collapsed]="false" [p-filter]="true" [p-automatic-toggle]="false">
+    <aside class="sidebar" id="sidebar-navigation" role="navigation" aria-label="Menu lateral" [attr.aria-expanded]="showSidebar">
+      <po-menu [p-menus]="menus" [p-collapsed]="!showSidebar" [p-filter]="true" [p-automatic-toggle]="true">
         <div *p-menu-header-template class="po-p-2 po-font-title">
           <p>Logistica</p>
         </div>
+        <div *p-menu-footer-template class="po-p-2" style="display:flex; gap:8px; align-items:center; justify-content:space-between;">
+           <po-button p-type="link" [p-label]="showSidebar ? 'Fechar menu' : 'Abrir menu'" (click)="toggleSidebar()" [attr.aria-controls]="'sidebar-navigation'" [attr.aria-expanded]="showSidebar" aria-label="Alternar menu lateral"></po-button>
+           <po-button p-type="link" p-label="Sair" (click)="fechar()" aria-label="Sair da aplicação"></po-button>
+         </div>
       </po-menu>
     </aside>
-    <main class="main">
+    <main class="main" role="main" tabindex="-1" aria-label="Conteúdo principal">
       <router-outlet></router-outlet>
     </main>
   </div>
@@ -24,9 +27,9 @@
         <po-password name="password" p-label="Senha" [(ngModel)]="password"></po-password>
       </div>
       <div class="actions" style="margin-top: 12px; display: flex; gap: 8px;">
-        <button po-button p-type="primary" p-label="Salvar Token" (click)="saveToken()"></button>
-        <button po-button p-type="secondary" p-label="Gerar Token" [disabled]="loadingToken" (click)="generateToken()"></button>
-        <button po-button p-type="link" p-label="Fechar" (click)="tokenModal.close()"></button>
+        <po-button p-type="primary" p-label="Salvar Token" (click)="saveToken()"></po-button>
+        <po-button p-type="secondary" p-label="Gerar Token" [p-disabled]="loadingToken" (click)="generateToken()"></po-button>
+        <po-button p-type="link" p-label="Fechar" (click)="tokenModal.close()"></po-button>
       </div>
     </div>
   </po-modal>

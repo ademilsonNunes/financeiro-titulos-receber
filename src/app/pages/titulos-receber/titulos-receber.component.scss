@@ -5,6 +5,22 @@
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
+  /* Fixar filtros no topo ao rolar verticalmente */
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #fff;
+  /* realce sutil para separar da tabela quando fixo */
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.transportadora-field {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
 }
 
 .date-range {
@@ -50,9 +66,42 @@
   align-items: center;
   justify-content: space-between;
   margin-top: 12px;
+  /* manter visível ao rolar verticalmente, opcional */
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 8px 0;
+  box-shadow: 0 -1px 0 rgba(0,0,0,0.06);
+  z-index: 4;
 }
 
 .page-info {
   font-size: 12px;
   color: #666;
+}
+
+/* Área de rolagem para tabelas largas e altas */
+.table-scroll {
+  overflow: auto; /* horizontal e vertical */
+  max-height: calc(100vh - 280px); /* ajusta conforme header/toolbar; evita que filtros saiam da tela */
+}
+
+.table-scroll po-table {
+  min-width: 1200px;
+}
+
+.debug-overlay {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 12px;
+  border-radius: 4px;
+  z-index: 1000;
+}
+
+.table-scroll po-table {
+  display: block;
 }

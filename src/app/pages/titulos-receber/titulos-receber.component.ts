@@ -1,11 +1,15 @@
-﻿import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PoPageModule, PoModalModule, PoModalComponent, PoTableModule, PoTableAction, PoNotificationService, PoNotificationModule, PoLoadingModule, PoTagModule, PoFieldModule } from '@po-ui/ng-components';
-import { PoInfoModule, PoButtonGroupModule, PoButtonGroupItem } from '@po-ui/ng-components';
+import { PoInfoModule, PoButtonGroupModule, PoButtonGroupItem, PoButtonModule } from '@po-ui/ng-components';
 import { TitulosService, TituloFilters, TituloReceberDTO } from '../../core/titulos.service';
 import { AuthService } from '../../core/auth.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TransportadorasLookupService } from '../../core/transportadoras.lookup.service';
+import { ClientesLookupService } from '../../core/clientes.lookup.service';
+import { TransportadorasService } from '../../core/transportadoras.service';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-titulos-receber',
@@ -13,6 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
   imports: [
     PoInfoModule,
     PoButtonGroupModule,
+    PoButtonModule,
     CommonModule,
     FormsModule,
     PoPageModule,
@@ -22,12 +27,32 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     PoLoadingModule,
     PoTagModule,
     PoFieldModule,
-  ],
+   ],
   template: `
-  <po-page-default p-title="Canhotos em aberto">
+  <po-page-default p-title="Canhotos em aberto" [attr.aria-busy]="loading">
     <div class="filters">
       <po-input name="nf" p-label="Nota Fiscal" [(ngModel)]="filters.nf"></po-input>
-      <po-input name="codigoCliente" p-label="Código Cliente" [(ngModel)]="filters.codigoCliente"></po-input>
+      <po-lookup
+           name="codigoCliente"
+           p-label="Código Cliente"
+           [(ngModel)]="filters.codigoCliente"
+           (ngModelChange)="onClienteChanged($event)"
+           [p-filter-service]="clientesLookup"
+           p-field-label="codigo"
+           p-field-value="codigo"
+           [p-columns]="clientesColumns"
+         ></po-lookup>
+      <po-input name="romaneio" p-label="Romaneio" [(ngModel)]="filters.romaneio"></po-input>
+      <po-lookup
+           name="codigoTransportadora"
+           p-label="Cód. Transportadora"
+           [(ngModel)]="filters.codigoTransportadora"
+           (ngModelChange)="onTransportadoraChanged($event)"
+           [p-filter-service]="transportadorasLookup"
+           p-field-label="codigo"
+           p-field-value="codigo"
+           [p-columns]="transportadorasColumns"
+         ></po-lookup>
       <po-input name="formaPagamento" p-label="Forma de Pagamento" [(ngModel)]="filters.formaPagamento" *ngIf="false"></po-input>
       <div class="date-range">
         <po-datepicker name="dataEmissaoInicio" p-label="Emissão Início" [(ngModel)]="filters.dataEmissaoInicio"></po-datepicker>
@@ -38,24 +63,41 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         <po-datepicker name="dataVencimentoFim" p-label="Vencimento Fim" [(ngModel)]="filters.dataVencimentoFim"></po-datepicker>
       </div>
       <div class="actions">
-        <button po-button p-label="Pesquisar" (click)="search()"></button>
-        <button po-button p-type="secondary" p-label="Limpar" (click)="clearFilters()"></button>
-        <button po-button p-type="link" p-label="Atualizar" (click)="search()"></button>
+        <po-button p-label="Pesquisar" (click)="search()"></po-button>
+        <po-button p-type="secondary" p-label="Limpar" (click)="clearFilters()"></po-button>
+        <po-button p-type="link" p-label="Atualizar" (click)="search()"></po-button>
       </div>
     </div>
 
     <po-info p-label="Browse de Cadastro" p-value="Abaixo as informações dos Canhotos em aberto"></po-info>
 
-    <div class="po-row">
-      <po-button-group class="po-md-6" [p-buttons]="topButtons"> </po-button-group>
-    </div>
-
     <po-loading *ngIf="loading"></po-loading>
 
-    <po-table [p-auto-collapse]="true" [p-striped]="true" [p-sort]="true" [p-hide-table-search]="false" [p-actions-right]="true" [p-columns]="columns" [p-items]="pagedTitulos" [p-actions]="tableActions" (p-row-click)="openDetails($any($event))"></po-table>
+    <div class="empty-state" *ngIf="!loading && (!titulos || titulos.length === 0)" role="status" aria-live="polite">
+      <po-info p-label="Nenhum resultado" p-value="Ajuste os filtros e pesquise novamente"></po-info>
+      <div class="actions">
+        <po-button p-type="primary" p-label="Pesquisar" (click)="search()"></po-button>
+        <po-button p-type="secondary" p-label="Limpar filtros" (click)="clearFilters()"></po-button>
+      </div>
+    </div>
 
-    <div class="pagination">
+    <div class="table-scroll" #tableScrollRef role="region" aria-label="Resultados" aria-live="polite" tabindex="0">
+      <po-table [p-auto-collapse]="true" [p-striped]="true" [p-sort]="true" [p-hide-table-search]="false" [p-actions-right]="true" [p-columns]="columns" [p-items]="pagedTitulos" [p-actions]="tableActions" (p-row-click)="openDetails($any($event))"></po-table>
+    </div>
+
+    <div class="debug-overlay" *ngIf="showDebug">
+      <div>Viewport: {{viewportW}} x {{viewportH}}</div>
+      <div>Sidebar width: {{sidebarWidth}}px</div>
+      <div>Grid cols: {{gridColumns}}</div>
+      <div>Tabela: client {{tableClientWidth}}px / scroll {{tableScrollWidth}}px</div>
+      <div>Overflow horizontal: {{tableOverflows ? 'sim' : 'não'}}</div>
+    </div>
+
+    <div class="pagination" aria-label="Paginação" aria-live="polite">
       <po-button-group [p-buttons]="paginationButtons"></po-button-group>
+      <div class="page-size" role="group" aria-label="Itens por página">
+        <po-button-group [p-buttons]="pageSizeButtons"></po-button-group>
+      </div>
       <span class="page-info">Página {{ page }} de {{ totalPages }}</span>
     </div>
 
@@ -72,17 +114,19 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         <div class="row"><strong>Chave NFe:</strong> {{ selected.chaveNFe }}</div>
       </div>
       <div class="modal-actions" *ngIf="!showBaixaInput">
-        <button po-button p-label="Confirmar Recebimento" p-type="primary" (click)="startBaixa()"></button>
-        <button po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></button>
+        <po-button p-label="Confirmar Recebimento" p-type="primary" (click)="startBaixa()"></po-button>
+        <po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></po-button>
       </div>
       <div class="baixa-form" *ngIf="showBaixaInput">
         <po-datepicker name="dataRecebimentoCliente" p-label="Data de Recebimento do Cliente" [(ngModel)]="baixaDate"></po-datepicker>
         <div class="modal-actions">
-          <button po-button p-label="Salvar Baixa" p-type="primary" (click)="submitBaixa()"></button>
-          <button po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></button>
+          <po-button p-label="Salvar Baixa" p-type="primary" (click)="submitBaixa()"></po-button>
+          <po-button p-label="Fechar" p-type="secondary" (click)="detailsModal?.close()"></po-button>
         </div>
       </div>
     </po-modal>
+
+
   </po-page-default>
   `,
   styleUrl: './titulos-receber.component.scss'
@@ -92,8 +136,12 @@ export class TitulosReceberComponent implements OnInit {
   private poNotification = inject(PoNotificationService);
   private authService = inject(AuthService);
   private destroyRef = inject(DestroyRef);
+  transportadorasLookup = inject(TransportadorasLookupService);
+  clientesLookup = inject(ClientesLookupService);
+  private transportadorasSvc = inject(TransportadorasService);
 
   @ViewChild('detailsModal', { static: false }) detailsModal?: PoModalComponent;
+  @ViewChild('tableScrollRef', { static: false }) tableScrollRef?: ElementRef<HTMLDivElement>;
 
   filters: TituloFilters = {};
   titulos: TituloReceberDTO[] = [];
@@ -102,12 +150,46 @@ export class TitulosReceberComponent implements OnInit {
   showBaixaInput = false;
   baixaDate?: Date;
 
+  // Debug/layout metrics
+  showDebug = false;
+  viewportW = 0;
+  viewportH = 0;
+  sidebarWidth = 0;
+  gridColumns = '';
+  tableClientWidth = 0;
+  tableScrollWidth = 0;
+  tableOverflows = false;
+
+  transportadorasColumns = [
+    { property: 'codigo', label: 'Código' },
+    { property: 'nome', label: 'Nome' },
+    { property: 'cnpj', label: 'CNPJ' },
+  ];
+  clientesColumns = [
+    { property: 'codigo', label: 'Código' },
+    { property: 'nome', label: 'Nome' },
+    { property: 'loja', label: 'Loja' },
+    { property: 'municipio', label: 'Município' },
+    { property: 'estado', label: 'UF' },
+    { property: 'tipoFrete', label: 'Tipo Frete' },
+  ];
+
   // Paginação
   page = 1;
-  pageSize = 50;
+  private _pageSize = 50;
+  get pageSize(): number { return this._pageSize; }
+  set pageSize(val: number) { this.applyPageSizeChange(val); }
+
+  pageSizeOptions = [
+    { label: '20', value: 20 },
+    { label: '50', value: 50 },
+    { label: '100', value: 100 },
+  ];
   totalItems = 0;
   pagedTitulos: TituloReceberDTO[] = [];
   paginationButtons: PoButtonGroupItem[] = [];
+  // Add page size toggle buttons using PoButtonGroup to avoid ngModel issues on PoSelect
+  pageSizeButtons: PoButtonGroupItem[] = [];
 
   get totalPages(): number { return Math.max(1, Math.ceil(this.totalItems / this.pageSize)); }
 
@@ -115,13 +197,18 @@ export class TitulosReceberComponent implements OnInit {
     { property: 'nf', label: 'NF' },
     { property: 'parcela', label: 'Parcela' },
     { property: 'codigoCliente', label: 'Cod. Cliente' },
+    { property: 'nomeCliente', label: 'Nome Cliente' },
+    { property: 'romaneio', label: 'Romaneio' },
+    { property: 'codigoTransportadora', label: 'Cód. Transportadora' },
+    { property: 'nomeTransportadora', label: 'Nome Transportadora' },
+    { property: 'condicaoPagamentoNF', label: 'Cond. Pagto NF' },
     { property: 'dataEmissao', label: 'Emissão' },
     { property: 'dataVencimento', label: 'Vencimento' },
     { property: 'valor', label: 'Valor', type: 'currency', format: 'BRL' },
     { property: 'saldo', label: 'Saldo', type: 'currency', format: 'BRL' },
     { property: 'formaPagamento', label: 'Forma Pgto' },
-    { property: 'statusCanhotaRecebido', label: 'Recebido' },
-    { property: 'statusCanhotaRetorno', label: 'Retorno' },
+    { property: 'statusCanhotaRecebido', label: 'Recebido' }
+    // Removido: { property: 'statusCanhotaRetorno', label: 'Retorno' },
   ];
 
   topButtons: PoButtonGroupItem[] = [
@@ -144,7 +231,25 @@ export class TitulosReceberComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(t => { if (t) this.search(); });
 
+    // Restaurar preferências de paginação
+    try {
+      const saved = Number((typeof window !== 'undefined' ? window.localStorage.getItem('titulos.pageSize') : null));
+      if (saved && [20,50,100].includes(saved)) {
+        this.pageSize = saved;
+      }
+    } catch {}
+
     this.updatePaginationButtons();
+    this.updatePageSizeButtons();
+
+    // Leitura do parâmetro de debug da URL
+    try {
+      const params = new URLSearchParams((typeof window !== 'undefined' ? window.location.search : ''));
+      this.showDebug = params.get('debug') === '1';
+    } catch {}
+
+    // Coleta inicial de métricas de layout
+    this.collectMetrics();
   }
 
   search(): void {
@@ -164,7 +269,10 @@ export class TitulosReceberComponent implements OnInit {
         this.page = 1;
         this.updatePagedItems();
         this.updatePaginationButtons();
+        // Enriquecer nome da transportadora
+        this.enrichTransportadoraNames(this.titulos);
         this.loading = false;
+        this.focusResultsRegion();
       },
       error: err => {
         this.loading = false;
@@ -178,6 +286,34 @@ export class TitulosReceberComponent implements OnInit {
     const start = (this.page - 1) * this.pageSize;
     const end = start + this.pageSize;
     this.pagedTitulos = this.titulos.slice(start, end);
+    this.focusResultsRegion();
+  }
+
+  private focusResultsRegion(): void {
+    const el = this.tableScrollRef?.nativeElement as HTMLElement | null;
+    if (el) setTimeout(() => el.focus(), 0);
+  }
+
+  private collectMetrics(): void {
+    if (typeof window === 'undefined') return;
+    this.viewportW = window.innerWidth;
+    this.viewportH = window.innerHeight;
+
+    const sidebarEl = document.querySelector('.sidebar') as HTMLElement | null;
+    this.sidebarWidth = sidebarEl ? sidebarEl.getBoundingClientRect().width : 0;
+
+    const contentEl = document.querySelector('.content-area') as HTMLElement | null;
+    if (contentEl) {
+      const cs = getComputedStyle(contentEl);
+      this.gridColumns = (cs as any).gridTemplateColumns || cs.getPropertyValue('grid-template-columns');
+    } else {
+      this.gridColumns = '';
+    }
+
+    const el = this.tableScrollRef?.nativeElement || null;
+    this.tableClientWidth = el ? el.clientWidth : 0;
+    this.tableScrollWidth = el ? el.scrollWidth : 0;
+    this.tableOverflows = !!(el && el.scrollWidth > el.clientWidth);
   }
 
   private filterItems(items: TituloReceberDTO[]): TituloReceberDTO[] {
@@ -195,6 +331,8 @@ export class TitulosReceberComponent implements OnInit {
     return items.filter((it) => {
       if (f.nf && !eq(it.nf, f.nf)) return false;
       if (f.codigoCliente && !eq(it.codigoCliente, f.codigoCliente)) return false;
+      if (f.romaneio && !eq((it as any).romaneio, f.romaneio)) return false;
+      if (f.codigoTransportadora && !eq((it as any).codigoTransportadora, f.codigoTransportadora)) return false;
       if (f.formaPagamento && !eq(it.formaPagamento, f.formaPagamento)) return false;
       if (f.statusCanhotaRecebido && !eq(it.statusCanhotaRecebido, f.statusCanhotaRecebido)) return false;
       if (f.statusCanhotaRetorno && !eq(it.statusCanhotaRetorno, f.statusCanhotaRetorno)) return false;
@@ -241,10 +379,38 @@ export class TitulosReceberComponent implements OnInit {
       if (xIsNum && yIsNum) return nx - ny;
       return safeStr(x).localeCompare(safeStr(y), 'pt-BR', { numeric: true, sensitivity: 'base' });
     };
+
+    // Novo critério: ordenar por vencimento mais próximo da data atual (inclui vencidos)
+    const today = new Date();
+    const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const normalizedTime = (d: Date | null) => {
+      if (!d) return null;
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    };
+    const distanceToToday = (d: Date | null) => {
+      const t = normalizedTime(d);
+      return t === null ? Number.POSITIVE_INFINITY : Math.abs(t - todayMid);
+    };
+    const isOverdue = (d: Date | null) => {
+      const t = normalizedTime(d);
+      return t !== null && t < todayMid;
+    };
+
     return [...items].sort((a, b) => {
-      const va = this.parseDateLoose(a.dataVencimento)?.getTime() ?? Number.POSITIVE_INFINITY;
-      const vb = this.parseDateLoose(b.dataVencimento)?.getTime() ?? Number.POSITIVE_INFINITY;
-      if (va !== vb) return va - vb;
+      const da = this.parseDateLoose(a.dataVencimento);
+      const db = this.parseDateLoose(b.dataVencimento);
+      const distA = distanceToToday(da);
+      const distB = distanceToToday(db);
+
+      // 1) Primeiro pela distância ao dia atual (menor distância primeiro)
+      if (distA !== distB) return distA - distB;
+
+      // 2) Desempate: prioriza vencidos sobre futuros se a distância for igual
+      const overdueA = isOverdue(da) ? 1 : 0;
+      const overdueB = isOverdue(db) ? 1 : 0;
+      if (overdueA !== overdueB) return overdueB - overdueA;
+
+      // 3) Desempates estáveis pelos campos NF e Código do Cliente
       const nfCmp = numOrStrCmp(a.nf, b.nf);
       if (nfCmp !== 0) return nfCmp;
       return numOrStrCmp(a.codigoCliente, b.codigoCliente);
@@ -259,6 +425,38 @@ export class TitulosReceberComponent implements OnInit {
       { label: 'Próxima', action: () => this.nextPage(), disabled: this.page >= last },
       { label: 'Última', action: () => this.goToPage(last), disabled: this.page >= last },
     ];
+  }
+
+  // New: update page size buttons selection state
+  private updatePageSizeButtons(): void {
+    this.pageSizeButtons = [
+      { label: '20', selected: this.pageSize === 20, action: () => this.applyPageSizeChange(20) },
+      { label: '50', selected: this.pageSize === 50, action: () => this.applyPageSizeChange(50) },
+      { label: '100', selected: this.pageSize === 100, action: () => this.applyPageSizeChange(100) },
+    ];
+  }
+
+  onPageSizeChange(size: number): void {
+    this.applyPageSizeChange(size);
+  }
+
+  // New: handler for page size button group click
+  onPageSizeGroupClick(item: PoButtonGroupItem): void {
+    const size = Number(item?.label);
+    if ([20,50,100].includes(size)) {
+      this.applyPageSizeChange(size);
+    }
+  }
+
+  private applyPageSizeChange(size: number): void {
+    this._pageSize = Number(size) || 50;
+    this.page = 1;
+    this.updatePagedItems();
+    this.updatePaginationButtons();
+    this.updatePageSizeButtons();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('titulos.pageSize', String(this._pageSize));
+    }
   }
 
   private prevPage(): void { if (this.page > 1) { this.page--; this.updatePagedItems(); this.updatePaginationButtons(); } }
@@ -294,6 +492,46 @@ export class TitulosReceberComponent implements OnInit {
     this.showBaixaInput = false;
     this.detailsModal?.close();
   }
+
+  onTransportadoraChanged(val: any): void {
+    const code = String(val ?? '').trim();
+    if (code) {
+      (this.filters as any).codigoTransportadora = code;
+    } else {
+      delete (this.filters as any).codigoTransportadora;
+    }
+    // Atualiza apenas o campo; a pesquisa é disparada pelo botão
+  }
+
+  onClienteChanged(val: any): void {
+    const code = String(val ?? '').trim();
+    if (code) {
+      (this.filters as any).codigoCliente = code;
+    } else {
+      delete (this.filters as any).codigoCliente;
+    }
+    // Atualiza apenas o campo; a pesquisa é disparada pelo botão
+  }
+
+  private enrichTransportadoraNames(items: TituloReceberDTO[]): void {
+    const codes = Array.from(new Set(items.map(it => String((it as any).codigoTransportadora ?? '').trim()).filter(c => !!c)));
+    if (codes.length === 0) return;
+    forkJoin(codes.map(code => this.transportadorasSvc.list({ codigo: code }))).subscribe(results => {
+      const nameByCode: Record<string, string> = {};
+      results.forEach((arr, idx) => {
+        const code = codes[idx];
+        nameByCode[code] = (arr && arr[0] && arr[0].nome) ? arr[0].nome : '';
+      });
+      items.forEach(it => {
+        const code = String((it as any).codigoTransportadora ?? '').trim();
+        if (code && nameByCode[code]) {
+          (it as any).nomeTransportadora = nameByCode[code];
+        }
+      });
+      this.updatePagedItems();
+    });
+  }
+
 }
 
 

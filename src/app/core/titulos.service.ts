@@ -13,6 +13,7 @@ export interface TituloReceberDTO {
   nomeCliente: string;
   vendedor: string;
   condicaoPagamento: string;
+  condicaoPagamentoNF?: string; // novo campo
   formaPagamento: string;
   uf: string;
   municipio: string;
@@ -25,6 +26,9 @@ export interface TituloReceberDTO {
   bordero: string;
   boleto: string;
   devolucao: string;
+  romaneio?: string; // novo campo
+  codigoTransportadora?: string; // novo campo
+  nomeTransportadora?: string; // novo campo
   statusCanhotaRecebido: string;
   statusCanhotaRetorno: string;
   dataRecebimentoCliente: string;
@@ -38,6 +42,8 @@ export interface TituloFilters {
   empresa?: string;
   nf?: string;
   codigoCliente?: string;
+  romaneio?: string;
+  codigoTransportadora?: string;
   formaPagamento?: string;
   statusCanhotaRecebido?: string;
   statusCanhotaRetorno?: string;

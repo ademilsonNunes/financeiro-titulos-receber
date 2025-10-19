@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -59,9 +59,9 @@ export class AppComponent implements OnInit {
   envLabel = '';
 
   readonly menus: PoMenuItem[] = [
-    { label: 'Consulta de Canhotos', link: '/titulos', icon: 'po-icon-news' },
-    { label: 'Ajuda (Help)', action: () => this.poNotification.information('Abrir documentação'), icon: 'po-icon-help' },
-    { label: 'Sair', action: () => this.fechar(), icon: 'po-icon-exit' },
+    { label: 'Consulta de Canhotos', shortLabel: 'Canhotos', link: '/titulos', icon: 'po-icon-news' },
+    { label: 'Ajuda (Help)', shortLabel: 'Ajuda', action: () => this.poNotification.information('Abrir documentação'), icon: 'po-icon-help' },
+    { label: 'Sair', shortLabel: 'Sair', action: () => this.fechar(), icon: 'po-icon-exit' },
   ];
 
   readonly toolbarActions: PoToolbarAction[] = [
@@ -107,6 +107,12 @@ export class AppComponent implements OnInit {
   toggleSidebar(): void {
     this.showSidebar = !this.showSidebar;
     this.toolbarActions[0].label = this.showSidebar ? 'Recolher menu' : 'Expandir menu';
+    setTimeout(() => this.focusMain(), 0);
+  }
+
+  private focusMain(): void {
+    const el = (document && document.querySelector('main.main')) as HTMLElement | null;
+    if (el) el.focus();
   }
 
   openTokenModal(): void {
