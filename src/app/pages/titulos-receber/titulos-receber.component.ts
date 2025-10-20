@@ -148,7 +148,7 @@ export class TitulosReceberComponent implements OnInit {
   loading = false;
   selected?: TituloReceberDTO;
   showBaixaInput = false;
-  baixaDate?: Date;
+  baixaDate?: Date | string;
   baixaSaving = false;
 
   // Debug/layout metrics
@@ -488,10 +488,16 @@ export class TitulosReceberComponent implements OnInit {
       this.poNotification.warning('Nenhum título selecionado.');
       return;
     }
+    // Garantir que a data está no tipo Date
+    const dateObj = this.parseDateLoose(this.baixaDate);
+    if (!dateObj) {
+      this.poNotification.warning('Data de recebimento inválida. Use o formato dd/mm/aaaa.');
+      return;
+    }
     // Formatar para YYYYMMDD
-    const y = this.baixaDate.getFullYear();
-    const m = String(this.baixaDate.getMonth() + 1).padStart(2, '0');
-    const d = String(this.baixaDate.getDate()).padStart(2, '0');
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
     const yyyymmdd = `${y}${m}${d}`;
 
     const nf = String(this.selected.nf ?? '').trim();

@@ -59,6 +59,7 @@ export class AppComponent implements OnInit {
   envLabel = '';
 
   readonly menus: PoMenuItem[] = [
+    { label: 'Dashboard', shortLabel: 'Dashboard', link: '/dashboard', icon: 'po-icon-chart-area' },
     { label: 'Consulta de Canhotos', shortLabel: 'Canhotos', link: '/titulos', icon: 'po-icon-news' },
     { label: 'Ajuda (Help)', shortLabel: 'Ajuda', action: () => this.poNotification.information('Abrir documentação'), icon: 'po-icon-help' },
     { label: 'Sair', shortLabel: 'Sair', action: () => this.fechar(), icon: 'po-icon-exit' },

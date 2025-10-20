@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$BaseUrl = 'http://10.0.132.4:8097',
   [string]$Username = 'admin',
   [string]$Password = 'admin',
@@ -59,18 +59,33 @@ $outPath = Join-Path (Resolve-Path '.').Path '_totvs_token.json'
 $out | ConvertTo-Json | Set-Content -LiteralPath $outPath -Encoding UTF8
 Green "Saved token to $outPath"
 
-$apiUrl = "$root/api/v1/titulos-receber"
+$apiUrl1 = "$root/api/v1/titulos-receber"
+$apiUrl2 = "$root/api/v1/timeline-recebimento"
 try {
   $authHeaders = @{ 'Authorization' = "Bearer $($best.token.access_token)"; 'Accept' = '*/*' }
-  $res = Invoke-WebRequest -Uri $apiUrl -Headers $authHeaders -Method Get -TimeoutSec 30 -ErrorAction Stop
-  Green ("GET /v1/titulos-receber -> HTTP " + $res.StatusCode)
-  if ($res.StatusCode -eq 200) {
-    $content = $res.Content; if ($content -is [byte[]]) { $text = [System.Text.Encoding]::UTF8.GetString($content) } else { $text = [string]$content }
+  $res1 = Invoke-WebRequest -Uri $apiUrl1 -Headers $authHeaders -Method Get -TimeoutSec 30 -ErrorAction Stop
+  Green ("GET /v1/titulos-receber -> HTTP " + $res1.StatusCode)
+  if ($res1.StatusCode -eq 200) {
+    $content = $res1.Content; if ($content -is [byte[]]) { $text = [System.Text.Encoding]::UTF8.GetString($content) } else { $text = [string]$content }
     $snippet = $text.Substring(0, [Math]::Min(300, $text.Length))
     Log ("Body preview: " + $snippet)
   }
 } catch {
-  Log ("Protected resource check failed: " + $_.Exception.Message)
+  Log ("Protected resource check failed for titulos-receber: " + $_.Exception.Message)
+}
+
+# Test timeline-recebimento endpoint
+try {
+  $authHeaders = @{ 'Authorization' = "Bearer $($best.token.access_token)"; 'Accept' = '*/*' }
+  $res2 = Invoke-WebRequest -Uri $apiUrl2 -Headers $authHeaders -Method Get -TimeoutSec 30 -ErrorAction Stop
+  Green ("GET /v1/timeline-recebimento -> HTTP " + $res2.StatusCode)
+  if ($res2.StatusCode -eq 200) {
+    $content2 = $res2.Content; if ($content2 -is [byte[]]) { $text2 = [System.Text.Encoding]::UTF8.GetString($content2) } else { $text2 = [string]$content2 }
+    $snippet2 = $text2.Substring(0, [Math]::Min(300, $text2.Length))
+    Log ("Body preview: " + $snippet2)
+  }
+} catch {
+  Log ("Protected resource check failed for timeline-recebimento: " + $_.Exception.Message)
 }
 
 # Optional: prepare DevTools sessionStorage snippet
