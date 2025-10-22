@@ -86,6 +86,11 @@
   gap: 8px;
 }
 
+/* Faz o card ocupar 100% da linha da grade */
+.chart-card--full {
+  grid-column: 1 / -1;
+}
+
 .chart-card header {
   font-weight: 600;
   color: var(--po-color-neutral-80, #1c1c1c);
@@ -113,6 +118,30 @@
   margin: 0;
 }
 
+/* Paginação mais arejada */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pagination .page-size {
+  margin-left: auto;
+}
+
+.pagination .page-info {
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--po-color-neutral-70, #4a4a4a);
+}
+
+/* Espaçamento extra no footer interno do po-table */
+:host ::ng-deep .po-table-footer {
+  display: none !important;
+}
+
 .empty-state {
   display: flex;
   justify-content: center;
@@ -125,6 +154,99 @@
   }
 
   .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    gap: 8px;
+  }
+}
+
+/* Legendas das tabelas: tornar mais visível e menos "quebrado" */
+.legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin: 6px 0 10px;
+}
+
+.legend-group-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--po-color-neutral-80, #1c1c1c);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--po-color-neutral-80, #1c1c1c);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.success { background-color: var(--po-color-success, #2cb292); }
+.legend-dot.warning { background-color: var(--po-color-warning, #f5a623); }
+.legend-dot.danger { background-color: var(--po-color-danger, #e26a6a); }
+.legend-dot.info { background-color: var(--po-color-info, #4aa3df); }
+.legend-dot.neutral { background-color: var(--po-color-neutral-50, #bdbdbd); }
+
+/* Evitar "bolinhas" emboladas: garantir espaçamento vertical entre múltiplas linhas de tags */
+.legend-items > * {
+  margin: 0; /* confiar no gap */
+}
+
+/* Legendas de subtítulos agora são exibidas normalmente */
+
+/* Estilos para legendas personalizadas das tabelas */
+.table-legend {
+  margin: 16px 0;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 4px solid #007bff;
+
+  .legend-group {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .legend-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #495057;
+      margin-bottom: 8px;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+
+      po-tag {
+        font-size: 12px;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .table-legend {
     grid-template-columns: 1fr;
   }
 }

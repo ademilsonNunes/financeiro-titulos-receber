@@ -20,6 +20,7 @@ export class TransportadorasService {
   private http = inject(HttpClient);
   private appConfig = inject(AppConfigService);
   private base = '';
+  private cacheByCode = new Map<string, TransportadoraDTO>();
 
   constructor() {
     this.base = `${this.getApiBasePath()}/v1/transportadoras`;
@@ -92,6 +93,55 @@ export class TransportadorasService {
             cnpj: t.cnpj ?? t.cpfCnpj ?? t.documento ?? '',
             raw: t,
           } as TransportadoraDTO));
+        })
+      );
+  }
+
+  // Buscar detalhe por código (endpoint /v1/transportadoras/detalhe?codigo=XXXX)
+  detail(codigo: string): Observable<TransportadoraDTO | null> {
+    const code = String(codigo ?? '').trim();
+    if (!code) return new Observable<TransportadoraDTO | null>((sub) => { sub.next(null); sub.complete(); });
+
+    // Cache simples para evitar múltiplas chamadas quando há várias linhas com o mesmo código
+    const cached = this.cacheByCode.get(code);
+    if (cached) return new Observable<TransportadoraDTO | null>((sub) => { sub.next(cached); sub.complete(); });
+
+    const url = `${this.base}/detalhe`;
+    const params = new HttpParams().set('codigo', code);
+    const headers = new HttpHeaders({ Accept: '*/*', 'X-Requested-With': 'XMLHttpRequest' });
+
+    return this.http
+      .get(url, { params, headers, responseType: 'text', observe: 'response' })
+      .pipe(
+        map((resp) => {
+          const body = resp.body || '';
+          const sanitized = (body as string).replace(/^\uFEFF/, '').trim();
+          let parsed: any;
+          try {
+            parsed = sanitized ? JSON.parse(sanitized) : null;
+          } catch {
+            console.error('Falha ao parsear resposta de detalhe da transportadora:', {
+              status: resp.status,
+              statusText: resp.statusText,
+              headers: resp.headers?.keys()?.reduce((acc: any, k) => { acc[k] = resp.headers?.get(k); return acc; }, {} as any),
+              bodyPreview: sanitized.substring(0, 500),
+            });
+            return null;
+          }
+
+          // Normalizar diferentes formatos possíveis
+          const obj = Array.isArray(parsed) ? (parsed[0] ?? null) : (parsed ?? null);
+          if (!obj || typeof obj !== 'object') return null;
+
+          const dto: TransportadoraDTO = {
+            codigo: obj.codigo ?? obj.codigoTransportadora ?? obj.id ?? code,
+            nome: obj.nome ?? obj.nomeTransportadora ?? obj.razaoSocial ?? obj.fantasia ?? '',
+            cnpj: obj.cnpj ?? obj.cpfCnpj ?? obj.documento ?? '',
+            raw: obj,
+          } as TransportadoraDTO;
+
+          if (dto && dto.codigo) this.cacheByCode.set(code, dto);
+          return dto;
         })
       );
   }

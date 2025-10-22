@@ -557,11 +557,12 @@ export class TitulosReceberComponent implements OnInit {
   private enrichTransportadoraNames(items: TituloReceberDTO[]): void {
     const codes = Array.from(new Set(items.map(it => String((it as any).codigoTransportadora ?? '').trim()).filter(c => !!c)));
     if (codes.length === 0) return;
-    forkJoin(codes.map(code => this.transportadorasSvc.list({ codigo: code }))).subscribe(results => {
+    // Buscar detalhe por código (com token via interceptor) e preencher nome corretamente
+    forkJoin(codes.map(code => this.transportadorasSvc.detail(code))).subscribe(results => {
       const nameByCode: Record<string, string> = {};
-      results.forEach((arr, idx) => {
+      results.forEach((dto, idx) => {
         const code = codes[idx];
-        nameByCode[code] = (arr && arr[0] && arr[0].nome) ? arr[0].nome : '';
+        nameByCode[code] = dto?.nome ?? '';
       });
       items.forEach(it => {
         const code = String((it as any).codigoTransportadora ?? '').trim();

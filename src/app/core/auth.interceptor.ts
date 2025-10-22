@@ -48,12 +48,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(req).pipe(
     catchError((err: any) => {
-      if (shouldAttach && err?.status === 401 && !isTokenEndpoint) {
-        // Try to refresh dev token and retry the request once
+      const alreadyRetried = req.headers?.get('X-Auth-Retry') === '1';
+      // Try to refresh dev token and retry when any API request gets 401 (covers first request race with empty token)
+      if (err?.status === 401 && isApiRequest && !isTokenEndpoint && !alreadyRetried) {
         return auth.refreshDevTokenIfConfigured().pipe(
           switchMap((newToken) => {
             if (newToken) {
-              const hdrs: Record<string, string> = { Authorization: `Bearer ${newToken}` };
+              const hdrs: Record<string, string> = { Authorization: `Bearer ${newToken}`, 'X-Auth-Retry': '1' };
               if (!req.headers.has('Accept')) hdrs['Accept'] = '*/*';
               const retried = req.clone({ setHeaders: hdrs });
               return next(retried);

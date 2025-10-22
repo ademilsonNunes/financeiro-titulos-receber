@@ -1,0 +1,220 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - navigation "Menu lateral" [ref=e5]:
+    - generic:
+      - generic:
+        - text: 
+        - generic [ref=e6]:
+          - generic [ref=e7]:
+            - generic [ref=e8]:
+              - paragraph [ref=e11]: Logistica
+              - generic [ref=e13]:
+                - textbox "Pesquisar" [ref=e14]
+                - generic [ref=e17] [cursor=pointer]: 
+            - navigation [ref=e22]:
+              - menu [ref=e23]:
+                - menuitem "Consulta de Canhotos" [ref=e25] [cursor=pointer]:
+                  - generic [ref=e26]:
+                    - generic [ref=e28]: 
+                    - generic [ref=e29]: Consulta de Canhotos
+                - menuitem "Ajuda (Help)" [ref=e31] [cursor=pointer]:
+                  - generic [ref=e32]:
+                    - generic [ref=e34]: 
+                    - generic [ref=e35]: Ajuda (Help)
+                - menuitem "Sair" [ref=e37] [cursor=pointer]:
+                  - generic [ref=e38]:
+                    - generic [ref=e40]: 
+                    - generic [ref=e41]: Sair
+          - button "Fechar menu" [ref=e43] [cursor=pointer]:
+            - generic [ref=e44]: Fechar menu
+            - generic [ref=e46]: 
+  - main "Conteúdo principal" [ref=e47]:
+    - generic [ref=e51]:
+      - heading "Canhotos em aberto" [level=1] [ref=e56]
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - generic [ref=e62]:
+            - generic [ref=e64]: Nota Fiscal
+            - textbox "Nota Fiscal" [active] [ref=e66]:
+              - /placeholder: ""
+              - text: "214862"
+          - generic [ref=e69]:
+            - generic [ref=e71]: Código Cliente
+            - generic [ref=e72]:
+              - textbox "Código Cliente" [ref=e73]:
+                - /placeholder: ""
+              - generic [ref=e77] [cursor=pointer]: 
+          - generic [ref=e80]:
+            - generic [ref=e82]: Romaneio
+            - textbox "Romaneio" [ref=e84]:
+              - /placeholder: ""
+          - generic [ref=e87]:
+            - generic [ref=e89]: Cód. Transportadora
+            - generic [ref=e90]:
+              - textbox "Cód. Transportadora" [ref=e91]:
+                - /placeholder: ""
+              - generic [ref=e95] [cursor=pointer]: 
+          - generic [ref=e96]:
+            - generic [ref=e99]:
+              - generic [ref=e101]: Emissão Início
+              - generic [ref=e102]:
+                - generic [ref=e103]:
+                  - textbox "Emissão Início" [ref=e105]:
+                    - /placeholder: ""
+                  - button "Abrir calendário" [ref=e107] [cursor=pointer]:
+                    - generic [ref=e110]: 
+                - text:  
+            - generic [ref=e113]:
+              - generic [ref=e115]: Emissão Fim
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - textbox "Emissão Fim" [ref=e119]:
+                    - /placeholder: ""
+                  - button "Abrir calendário" [ref=e121] [cursor=pointer]:
+                    - generic [ref=e124]: 
+                - text:  
+          - generic [ref=e125]:
+            - generic [ref=e128]:
+              - generic [ref=e130]: Vencimento Início
+              - generic [ref=e131]:
+                - generic [ref=e132]:
+                  - textbox "Vencimento Início" [ref=e134]:
+                    - /placeholder: ""
+                  - button "Abrir calendário" [ref=e136] [cursor=pointer]:
+                    - generic [ref=e139]: 
+                - text:  
+            - generic [ref=e142]:
+              - generic [ref=e144]: Vencimento Fim
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - textbox "Vencimento Fim" [ref=e148]:
+                    - /placeholder: ""
+                  - button "Abrir calendário" [ref=e150] [cursor=pointer]:
+                    - generic [ref=e153]: 
+                - text:  
+          - generic [ref=e154]:
+            - button "Pesquisar" [ref=e156] [cursor=pointer]:
+              - generic [ref=e157]: Pesquisar
+            - button "Limpar" [ref=e159] [cursor=pointer]:
+              - generic [ref=e160]: Limpar
+            - button "Atualizar" [ref=e162] [cursor=pointer]:
+              - generic [ref=e163]: Atualizar
+        - generic [ref=e165]:
+          - generic [ref=e166]: Browse de Cadastro
+          - generic [ref=e168]: Abaixo as informações dos Canhotos em aberto
+        - region "Resultados" [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - button "Gerenciador de colunas" [ref=e174] [cursor=pointer]:
+                - generic [ref=e177]: 
+              - generic [ref=e180]:
+                - generic [ref=e183] [cursor=pointer]: 
+                - textbox "Pesquisar" [ref=e184]
+            - table [ref=e189]:
+              - rowgroup [ref=e190]:
+                - row "NF Parcela Cod. Cliente Nome Cliente Romaneio Cód. Transportadora Nome Transportadora Cond. Pagto NF Emissão Vencimento Valor Saldo Forma Pgto Recebido" [ref=e191]:
+                  - cell "NF" [ref=e192] [cursor=pointer]:
+                    - generic [ref=e193]:
+                      - generic [ref=e194]: NF
+                      - img [ref=e196]
+                  - cell "Parcela" [ref=e198] [cursor=pointer]:
+                    - generic [ref=e199]:
+                      - generic [ref=e200]: Parcela
+                      - img [ref=e202]
+                  - cell "Cod. Cliente" [ref=e204] [cursor=pointer]:
+                    - generic [ref=e205]:
+                      - generic [ref=e206]: Cod. Cliente
+                      - img [ref=e208]
+                  - cell "Nome Cliente" [ref=e210] [cursor=pointer]:
+                    - generic [ref=e211]:
+                      - generic [ref=e212]: Nome Cliente
+                      - img [ref=e214]
+                  - cell "Romaneio" [ref=e216] [cursor=pointer]:
+                    - generic [ref=e217]:
+                      - generic [ref=e218]: Romaneio
+                      - img [ref=e220]
+                  - cell "Cód. Transportadora" [ref=e222] [cursor=pointer]:
+                    - generic [ref=e223]:
+                      - generic [ref=e224]: Cód. Transportadora
+                      - img [ref=e226]
+                  - cell "Nome Transportadora" [ref=e228] [cursor=pointer]:
+                    - generic [ref=e229]:
+                      - generic [ref=e230]: Nome Transportadora
+                      - img [ref=e232]
+                  - cell "Cond. Pagto NF" [ref=e234] [cursor=pointer]:
+                    - generic [ref=e235]:
+                      - generic [ref=e236]: Cond. Pagto NF
+                      - img [ref=e238]
+                  - cell "Emissão" [ref=e240] [cursor=pointer]:
+                    - generic [ref=e241]:
+                      - generic [ref=e242]: Emissão
+                      - img [ref=e244]
+                  - cell "Vencimento" [ref=e246] [cursor=pointer]:
+                    - generic [ref=e247]:
+                      - generic [ref=e248]: Vencimento
+                      - img [ref=e250]
+                  - cell "Valor" [ref=e252] [cursor=pointer]:
+                    - generic [ref=e253]:
+                      - generic [ref=e254]: Valor
+                      - img [ref=e256]
+                  - cell "Saldo" [ref=e258] [cursor=pointer]:
+                    - generic [ref=e259]:
+                      - generic [ref=e260]: Saldo
+                      - img [ref=e262]
+                  - cell "Forma Pgto" [ref=e264] [cursor=pointer]:
+                    - generic [ref=e265]:
+                      - generic [ref=e266]: Forma Pgto
+                      - img [ref=e268]
+                  - cell "Recebido" [ref=e270] [cursor=pointer]:
+                    - generic [ref=e271]:
+                      - generic [ref=e272]: Recebido
+                      - img [ref=e274]
+                  - cell
+              - rowgroup [ref=e276]:
+                - row "214862 A 414 JALL SUPERMERCADOS 03/07/2024 02/07/2025 BOLETO ABERTO Detalhes" [ref=e277]:
+                  - cell "214862" [ref=e278]:
+                    - generic [ref=e279]: "214862"
+                  - cell "A" [ref=e280]:
+                    - generic [ref=e281]: A
+                  - cell "414" [ref=e282]:
+                    - generic [ref=e283]: "414"
+                  - cell "JALL SUPERMERCADOS" [ref=e284]:
+                    - generic [ref=e285]: JALL SUPERMERCADOS
+                  - cell [ref=e286]
+                  - cell [ref=e287]
+                  - cell [ref=e288]
+                  - cell [ref=e289]
+                  - cell "03/07/2024" [ref=e290]:
+                    - generic [ref=e291]: 03/07/2024
+                  - cell "02/07/2025" [ref=e292]:
+                    - generic [ref=e293]: 02/07/2025
+                  - cell [ref=e294]
+                  - cell [ref=e295]
+                  - cell "BOLETO" [ref=e296]:
+                    - generic [ref=e297]: BOLETO
+                  - cell "ABERTO" [ref=e298]:
+                    - generic [ref=e299]: ABERTO
+                  - cell "Detalhes" [ref=e300]:
+                    - generic [ref=e301] [cursor=pointer]: Detalhes
+        - generic "Paginação" [ref=e302]:
+          - generic [ref=e304]:
+            - button "Primeira" [disabled] [ref=e306]:
+              - generic [ref=e307]: Primeira
+            - button "Anterior" [disabled] [ref=e309]:
+              - generic [ref=e310]: Anterior
+            - button "Próxima" [disabled] [ref=e312]:
+              - generic [ref=e313]: Próxima
+            - button "Última" [disabled] [ref=e315]:
+              - generic [ref=e316]: Última
+          - group "Itens por página" [ref=e317]:
+            - generic [ref=e319]:
+              - button "20" [ref=e321] [cursor=pointer]:
+                - generic [ref=e322]: "20"
+              - button "50" [ref=e324] [cursor=pointer]:
+                - generic [ref=e325]: "50"
+              - button "100" [ref=e327] [cursor=pointer]:
+                - generic [ref=e328]: "100"
+          - generic [ref=e329]: Página 1 de 1
+```
