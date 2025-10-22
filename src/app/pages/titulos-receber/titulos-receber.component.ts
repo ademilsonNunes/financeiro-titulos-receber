@@ -194,23 +194,7 @@ export class TitulosReceberComponent implements OnInit {
 
   get totalPages(): number { return Math.max(1, Math.ceil(this.totalItems / this.pageSize)); }
 
-  columns = [
-    { property: 'nf', label: 'NF' },
-    { property: 'parcela', label: 'Parcela' },
-    { property: 'codigoCliente', label: 'Cod. Cliente' },
-    { property: 'nomeCliente', label: 'Nome Cliente' },
-    { property: 'romaneio', label: 'Romaneio' },
-    { property: 'codigoTransportadora', label: 'Cód. Transportadora' },
-    { property: 'nomeTransportadora', label: 'Nome Transportadora' },
-    { property: 'condicaoPagamentoNF', label: 'Cond. Pagto NF' },
-    { property: 'dataEmissao', label: 'Emissão' },
-    { property: 'dataVencimento', label: 'Vencimento' },
-    { property: 'valor', label: 'Valor', type: 'currency', format: 'BRL' },
-    { property: 'saldo', label: 'Saldo', type: 'currency', format: 'BRL' },
-    { property: 'formaPagamento', label: 'Forma Pgto' },
-    { property: 'statusCanhotaRecebido', label: 'Recebido' }
-    // Removido: { property: 'statusCanhotaRetorno', label: 'Retorno' },
-  ];
+  columns: any[] = [];
 
   topButtons: PoButtonGroupItem[] = [
     { label: "Atualizar Browse", icon: "po-icon-refresh", action: () => this.search() },
@@ -263,6 +247,8 @@ export class TitulosReceberComponent implements OnInit {
     this.service.list(this.filters).subscribe({
       next: data => {
         const raw = data ?? [];
+        // Derivar colunas diretamente do retorno da API (antes de qualquer enriquecimento)
+        this.columns = this.deriveColumnsFromItems(raw);
         const filtered = this.filterItems(raw);
         const ordered = this.sortByVencimentoAsc(filtered);
         this.titulos = ordered;
@@ -270,7 +256,7 @@ export class TitulosReceberComponent implements OnInit {
         this.page = 1;
         this.updatePagedItems();
         this.updatePaginationButtons();
-        // Enriquecer nome da transportadora
+        // Opcional: enriquecer com nome da transportadora sem alterar colunas exibidas (somente colunas da API)
         this.enrichTransportadoraNames(this.titulos);
         this.loading = false;
         this.focusResultsRegion();
@@ -288,6 +274,57 @@ export class TitulosReceberComponent implements OnInit {
     const end = start + this.pageSize;
     this.pagedTitulos = this.titulos.slice(start, end);
     this.focusResultsRegion();
+  }
+
+  // Deriva colunas dinamicamente a partir dos itens retornados pela API
+  private deriveColumnsFromItems(items: any[]): any[] {
+    const keySet = new Set<string>();
+    (items || []).forEach(it => Object.keys(it || {}).forEach(k => keySet.add(k)));
+    const allKeys = Array.from(keySet);
+
+    // Mapa de rótulos amigáveis para chaves conhecidas
+    const labelMap: Record<string, string> = {
+      nf: 'NF',
+      parcela: 'Parcela',
+      codigoCliente: 'Cod. Cliente',
+      nomeCliente: 'Nome Cliente',
+      romaneio: 'Romaneio',
+      codigoTransportadora: 'Cód. Transportadora',
+      nomeTransportadora: 'Nome Transportadora',
+      condicaoPagamentoNF: 'Cond. Pagto NF',
+      dataEmissao: 'Emissão',
+      dataVencimento: 'Vencimento',
+      valor: 'Valor',
+      saldo: 'Saldo',
+      formaPagamento: 'Forma Pgto',
+      statusCanhotaRecebido: 'Recebido',
+      statusCanhotaRetorno: 'Retorno'
+    };
+
+    const currencyKeys = new Set(['valor', 'saldo']);
+
+    const toLabel = (k: string) => labelMap[k] || k
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, s => s.toUpperCase());
+
+    // Colunas preferenciais na frente, o restante em ordem alfabética
+    const preferredOrder = [
+      'nf','parcela','codigoCliente','nomeCliente','romaneio',
+      'codigoTransportadora','condicaoPagamentoNF','dataEmissao','dataVencimento','valor','saldo','formaPagamento','statusCanhotaRecebido','statusCanhotaRetorno'
+    ];
+    const preferred = preferredOrder.filter(k => keySet.has(k));
+    const rest = allKeys.filter(k => !preferred.includes(k)).sort((a,b) => a.localeCompare(b));
+    const finalKeys = [...preferred, ...rest];
+
+    return finalKeys.map(k => {
+      const col: any = { property: k, label: toLabel(k) };
+      if (currencyKeys.has(k)) {
+        col.type = 'currency';
+        col.format = 'BRL';
+      }
+      return col;
+    });
   }
 
   private focusResultsRegion(): void {
