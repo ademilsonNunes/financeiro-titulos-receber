@@ -247,16 +247,22 @@ export class TitulosReceberComponent implements OnInit {
     this.service.list(this.filters).subscribe({
       next: data => {
         const raw = data ?? [];
-        // Derivar colunas diretamente do retorno da API (antes de qualquer enriquecimento)
-        this.columns = this.deriveColumnsFromItems(raw);
-        const filtered = this.filterItems(raw);
+        // Aplicar a nova regra de negócio: calcular status de Recebido e Retorno a partir das datas
+        const withStatuses = this.applyStatusFromDates(raw);
+        // Consolidar campos conhecidos vindos em estruturas alternativas (aging/eventos/sinônimos)
+        const consolidated = this.consolidateKnownFields(withStatuses);
+        // Padronizar apresentação das datas para dd/MM/yyyy em campos conhecidos
+        const normalizedDates = this.normalizeDateFields(consolidated);
+        // Derivar colunas diretamente do retorno (incluindo os status calculados)
+        this.columns = this.deriveColumnsFromItems(normalizedDates);
+        const filtered = this.filterItems(normalizedDates);
         const ordered = this.sortByVencimentoAsc(filtered);
         this.titulos = ordered;
         this.totalItems = ordered.length;
         this.page = 1;
         this.updatePagedItems();
         this.updatePaginationButtons();
-        // Opcional: enriquecer com nome da transportadora sem alterar colunas exibidas (somente colunas da API)
+        // Opcional: enriquecer com nome da transportadora sem alterar colunas exibidas
         this.enrichTransportadoraNames(this.titulos);
         this.loading = false;
         this.focusResultsRegion();
@@ -282,6 +288,11 @@ export class TitulosReceberComponent implements OnInit {
     (items || []).forEach(it => Object.keys(it || {}).forEach(k => keySet.add(k)));
     const allKeys = Array.from(keySet);
 
+    // Se houver código de transportadora, garantir que a coluna de nome também apareça (será enriquecida após a busca)
+    if (keySet.has('codigoTransportadora') && !keySet.has('nomeTransportadora')) {
+      allKeys.push('nomeTransportadora');
+    }
+
     // Mapa de rótulos amigáveis para chaves conhecidas
     const labelMap: Record<string, string> = {
       nf: 'NF',
@@ -290,7 +301,7 @@ export class TitulosReceberComponent implements OnInit {
       nomeCliente: 'Nome Cliente',
       romaneio: 'Romaneio',
       codigoTransportadora: 'Cód. Transportadora',
-      nomeTransportadora: 'Nome Transportadora',
+      nomeTransportadora: 'Transportador',
       condicaoPagamentoNF: 'Cond. Pagto NF',
       dataEmissao: 'Emissão',
       dataVencimento: 'Vencimento',
@@ -302,6 +313,10 @@ export class TitulosReceberComponent implements OnInit {
     };
 
     const currencyKeys = new Set(['valor', 'saldo']);
+    const dateKeys = new Set(['dataEmissao','dataVencimento','dataRecebimentoCliente','dataRecebimentoCanhoto','dataRetornoCanhoto','E1_ZZDTREC','E1_ZZDTRET']);
+
+    // Campos que não devem ser exibidos como coluna
+    const skipFields = new Set<string>(['condicaoPagamento']);
 
     const toLabel = (k: string) => labelMap[k] || k
       .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -311,11 +326,11 @@ export class TitulosReceberComponent implements OnInit {
     // Colunas preferenciais na frente, o restante em ordem alfabética
     const preferredOrder = [
       'nf','parcela','codigoCliente','nomeCliente','romaneio',
-      'codigoTransportadora','condicaoPagamentoNF','dataEmissao','dataVencimento','valor','saldo','formaPagamento','statusCanhotaRecebido','statusCanhotaRetorno'
+      'codigoTransportadora','nomeTransportadora','condicaoPagamentoNF','dataEmissao','dataVencimento','valor','saldo','formaPagamento','statusCanhotaRecebido','statusCanhotaRetorno'
     ];
-    const preferred = preferredOrder.filter(k => keySet.has(k));
+    const preferred = preferredOrder.filter(k => allKeys.includes(k));
     const rest = allKeys.filter(k => !preferred.includes(k)).sort((a,b) => a.localeCompare(b));
-    const finalKeys = [...preferred, ...rest];
+    const finalKeys = [...preferred, ...rest].filter(k => !skipFields.has(k));
 
     return finalKeys.map(k => {
       const col: any = { property: k, label: toLabel(k) };
@@ -323,8 +338,172 @@ export class TitulosReceberComponent implements OnInit {
         col.type = 'currency';
         col.format = 'BRL';
       }
+      if (dateKeys.has(k)) {
+        // padronizar visualmente como dd/MM/yyyy
+        col.type = 'date';
+        col.format = 'dd/MM/yyyy';
+      }
       return col;
     });
+  }
+
+  private applyStatusFromDates(items: any[]): any[] {
+    const computeStatus = (dateVal: any) => {
+      const d = this.parseDateLoose(dateVal);
+      return d ? 'Baixado' : 'Aberto';
+    };
+    const firstNonEmpty = (it: any, keys: string[]) => {
+      for (const k of keys) {
+        const v = (it as any)[k];
+        const s = String(v ?? '').trim();
+        if (s && s !== '00000000') return v;
+      }
+      return '';
+    };
+    const receivedClientKeys = ['dataRecebimentoCliente','dtRecebimentoCliente','recebimentoCliente','E1_ZZDTREC'];
+    const retornoCanhotoKeys = ['dataRecebimentoCanhoto','dtRecebimentoCanhoto','retornoCanhoto','E1_ZZDTRET','dataRetornoCanhoto'];
+
+    return (items || []).map(it => {
+      const recCliDate = firstNonEmpty(it, receivedClientKeys);
+      const retCanDate = firstNonEmpty(it, retornoCanhotoKeys);
+      // Ajustar campos de status no item, conforme nova regra de negócio
+      (it as any).statusCanhotaRecebido = computeStatus(recCliDate);
+      (it as any).statusCanhotaRetorno = computeStatus(retCanDate);
+      return it;
+    });
+  }
+
+  // Novo: Consolida campos canônicos (dataEmissao, dataVencimento) a partir de aging/eventos/sinônimos
+  private consolidateKnownFields(items: any[]): any[] {
+    const isValidDateVal = (v: any): boolean => !!this.parseDateLoose(v);
+    const firstNonEmpty = (obj: any, keys: string[]): any => {
+      for (const k of keys) {
+        const v = obj?.[k];
+        const s = String(v ?? '').trim();
+        if (s && s !== '00000000') return v;
+      }
+      return '';
+    };
+    const getFromAging = (obj: any, key: string): any => {
+      const v = obj?.aging?.[key];
+      const s = String(v ?? '').trim();
+      return s && s !== '00000000' ? v : '';
+    };
+    const getFromEventos = (obj: any, tipo: string): any => {
+      const evs = Array.isArray(obj?.eventos) ? obj.eventos : [];
+      const found = evs.find((e: any) => String(e?.tipo ?? '').toUpperCase() === tipo.toUpperCase());
+      const v = found?.data;
+      const s = String(v ?? '').trim();
+      return s && s !== '00000000' ? v : '';
+    };
+
+    return (items || []).map(it => {
+      const out: any = { ...it };
+
+      // Emissão: priorizar fontes mais confiáveis (aging, eventos) e somente aceitar candidatos parseáveis
+      const emisCandidates = [
+        getFromAging(out, 'dataEmissao'),
+        getFromEventos(out, 'EMISSAO'),
+        firstNonEmpty(out, ['dataEmissao','emissao','dtEmissao','E1_EMISSAO']),
+      ];
+      const emissao = emisCandidates.find(v => isValidDateVal(v));
+      if (emissao) out.dataEmissao = emissao;
+
+      // Vencimento: mesma estratégia de prioridade e validade
+      const vencCandidates = [
+        getFromAging(out, 'dataVencimento'),
+        getFromEventos(out, 'VENCIMENTO'),
+        firstNonEmpty(out, ['dataVencimento','vencimento','dtVencimento','E1_VENCTO']),
+      ];
+      const venc = vencCandidates.find(v => isValidDateVal(v));
+      if (venc) out.dataVencimento = venc;
+
+      return out;
+    });
+  }
+
+  // Padroniza apresentação das datas em dd/MM/yyyy para chaves conhecidas, aceitando TOTVS (YYYYMMDD ou DDMMYYYY), ISO e dd/MM/yyyy
+  private normalizeDateFields(items: any[]): any[] {
+    const dateKeys = [
+      'dataEmissao','dataVencimento',
+      'dataRecebimentoCliente','dtRecebimentoCliente','recebimentoCliente','E1_ZZDTREC',
+      'dataRecebimentoCanhoto','dtRecebimentoCanhoto','retornoCanhoto','dataRetornoCanhoto','E1_ZZDTRET'
+    ];
+    const normalizeVal = (raw: any) => {
+      const s = String(raw ?? '').trim();
+      if (!s || s === '00000000') return null; // evita erro no DatePipe
+      // Heurística: tentar interpretar números de 8 dígitos como YYYYMMDD primeiro, depois DDMMYYYY se ano inválido
+      const digits = s.replace(/[^0-9]/g, '');
+      if (digits.length === 8) {
+        const tryOrder = (y: string, m: string, d: string) => {
+          const yy = Number(y);
+          const mm = Number(m) - 1;
+          const dd = Number(d);
+          const dt = new Date(yy, mm, dd);
+          const ok = !isNaN(dt.getTime()) && yy >= 1900 && yy <= 2100;
+          return ok ? dt : null;
+        };
+        // YYYYMMDD
+        let dt = tryOrder(digits.slice(0,4), digits.slice(4,6), digits.slice(6,8));
+        if (!dt) {
+          // DDMMYYYY
+          dt = tryOrder(digits.slice(4,8), digits.slice(2,4), digits.slice(0,2));
+        }
+        if (dt) return dt;
+      }
+      const parsed = this.parseDateLoose(s);
+      return parsed || null;
+    };
+    return (items || []).map(it => {
+      const out: any = { ...it };
+      for (const k of dateKeys) {
+        if (Object.prototype.hasOwnProperty.call(out, k)) {
+          out[k] = normalizeVal(out[k]);
+        }
+      }
+      return out;
+    });
+  }
+
+  private parseDateLoose(s: any): Date | null {
+    if (!s) return null;
+    if (s instanceof Date) {
+      const y = s.getFullYear();
+      if (y < 1900 || y > 2100) return null;
+      return s;
+    }
+    if (typeof s === 'string') {
+      const t = s.trim();
+      // números: tentar heurística como em normalize
+      const digits = t.replace(/[^0-9]/g, '');
+      if (digits.length === 8) {
+        const tryOrder = (y: string, m: string, d: string) => {
+          const yy = Number(y);
+          const mm = Number(m) - 1;
+          const dd = Number(d);
+          const dt = new Date(yy, mm, dd);
+          const ok = !isNaN(dt.getTime()) && yy >= 1900 && yy <= 2100;
+          return ok ? dt : null;
+        };
+        let dt = tryOrder(digits.slice(0,4), digits.slice(4,6), digits.slice(6,8));
+        if (!dt) dt = tryOrder(digits.slice(4,8), digits.slice(2,4), digits.slice(0,2));
+        if (dt) return dt;
+      }
+      // dd/MM/yyyy
+      const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) {
+        const d = Number(m[1]), mo = Number(m[2]) - 1, y = Number(m[3]);
+        const dd = new Date(y, mo, d);
+        if (!isNaN(dd.getTime()) && y >= 1900 && y <= 2100) return dd;
+        return null;
+      }
+      const dIso = new Date(t);
+      if (!isNaN(dIso.getTime())) {
+        const y = dIso.getFullYear();
+        return (y >= 1900 && y <= 2100) ? dIso : null;
+      }
+    }
+    return null;
   }
 
   private focusResultsRegion(): void {
@@ -364,7 +543,8 @@ export class TitulosReceberComponent implements OnInit {
     const venIni = this.parseDateLoose(f.dataVencimentoInicio);
     const venFim = this.parseDateLoose(f.dataVencimentoFim);
 
-    const eq = (a: any, b: any) => String(a ?? '').trim() === String(b ?? '').trim();
+    const norm = (x: any) => String(x ?? '').trim().toUpperCase();
+    const eq = (a: any, b: any) => norm(a) === norm(b);
 
     return items.filter((it) => {
       if (f.nf && !eq(it.nf, f.nf)) return false;
@@ -390,22 +570,6 @@ export class TitulosReceberComponent implements OnInit {
     });
   }
 
-  private parseDateLoose(s: any): Date | null {
-    if (!s) return null;
-    if (s instanceof Date) return s;
-    if (typeof s === 'string') {
-      const t = s.trim();
-      const dIso = new Date(t);
-      if (!isNaN(dIso.getTime())) return dIso;
-      const m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-      if (m) {
-        const d = Number(m[1]), mo = Number(m[2]) - 1, y = Number(m[3]);
-        const dd = new Date(y, mo, d);
-        if (!isNaN(dd.getTime())) return dd;
-      }
-    }
-    return null;
-  }
 
   private sortByVencimentoAsc(items: TituloReceberDTO[]): TituloReceberDTO[] {
     const safeStr = (s: any) => String(s ?? '').trim();
@@ -607,6 +771,13 @@ export class TitulosReceberComponent implements OnInit {
           (it as any).nomeTransportadora = nameByCode[code];
         }
       });
+      // Garante a existência da coluna "Transportador" quando for enriquecida após a derivação inicial
+      const hasTransportadorCol = this.columns.some(c => c.property === 'nomeTransportadora');
+      if (!hasTransportadorCol) {
+        const insertIdx = Math.max(0, this.columns.findIndex(c => c.property === 'codigoTransportadora')) + 1;
+        const col = { property: 'nomeTransportadora', label: 'Transportador' } as any;
+        this.columns.splice(insertIdx > 0 ? insertIdx : this.columns.length, 0, col);
+      }
       this.updatePagedItems();
     });
   }

@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AppConfigService } from './app-config.service';
+import { AuthService } from './auth.service';
 
 export interface TransportadoraDTO {
   codigo?: string;
@@ -19,6 +20,7 @@ export interface TransportadoraDTO {
 export class TransportadorasService {
   private http = inject(HttpClient);
   private appConfig = inject(AppConfigService);
+  private auth = inject(AuthService);
   private base = '';
   private cacheByCode = new Map<string, TransportadoraDTO>();
 
@@ -107,7 +109,12 @@ export class TransportadorasService {
     if (cached) return new Observable<TransportadoraDTO | null>((sub) => { sub.next(cached); sub.complete(); });
 
     const url = `${this.base}/detalhe`;
-    const params = new HttpParams().set('codigo', code);
+    let params = new HttpParams().set('codigo', code);
+    const token = this.auth.getToken();
+    if (token) {
+      // Atende ao requisito de passar o token na URL (GET) além do header Authorization
+      params = params.set('token', token);
+    }
     const headers = new HttpHeaders({ Accept: '*/*', 'X-Requested-With': 'XMLHttpRequest' });
 
     return this.http

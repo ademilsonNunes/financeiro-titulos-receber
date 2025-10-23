@@ -160,7 +160,7 @@ interface EnrichedItem extends DashboardViewItem {
         </div>
         <div class="chart-card">
           <header>Etapas do ciclo de recebimento</header>
-          <po-chart [p-type]="chartTypeColumn" [p-series]="pipelineSeries" [p-categories]="pipelineCategories" [p-height]="260"></po-chart>
+          <po-chart [p-type]="chartTypeColumn" [p-series]="pipelineSeries" [p-categories]="pipelineCategories" [p-height]="260" [p-options]="pipelineChartOptions"></po-chart>
         </div>
         <div class="chart-card chart-card--full">
           <header>Distribuição da carteira por faixa de atraso</header>
@@ -188,20 +188,25 @@ interface EnrichedItem extends DashboardViewItem {
             <div class="legend-group-inline">
               <span class="legend-label">Status geral:</span>
               <span class="legend-item" *ngFor="let s of statusLegend">
-                <span class="legend-dot" [ngClass]="legendClassForStatus(s.key)"></span>
-                <span class="legend-text">{{ s.label }}</span>
+                <span class="legend-pill" [ngClass]="legendClassForStatus(s.key)">{{ s.label }}</span>
               </span>
             </div>
             <div class="legend-group-inline">
               <span class="legend-label">Prioridade:</span>
               <span class="legend-item" *ngFor="let p of priorityLegend">
-                <span class="legend-dot" [ngClass]="legendClassForPriority(p.key)"></span>
-                <span class="legend-text">{{ p.label }}</span>
+                <span class="legend-pill" [ngClass]="legendClassForPriority(p.key)">{{ p.label }}</span>
               </span>
             </div>
           </div>
         </div>
-        <po-table [p-columns]="priorityColumns" [p-items]="priorityPaginatedItems" (p-sort)="onSort($event, 'priority')"></po-table>
+        <po-table [p-columns]="priorityColumns" [p-items]="priorityPaginatedItems" [p-sort]="true" (p-sort)="onSort($event, 'priority')">
+          <ng-template p-table-column-template [p-property]="'prioridade'" let-value>
+            <span class="legend-pill" [ngClass]="legendClassForPriority(normalizePriority(value))">{{ getPriorityLabel(value) }}</span>
+          </ng-template>
+          <ng-template p-table-column-template [p-property]="'statusGeral'" let-value>
+            <span class="legend-pill" [ngClass]="legendClassForStatus(normalizeStatus(value))">{{ getStatusLabel(value) }}</span>
+          </ng-template>
+        </po-table>
       </section>
 
       <section class="aging-board" role="region" aria-label="Carteira por aging">
@@ -223,20 +228,28 @@ interface EnrichedItem extends DashboardViewItem {
             <div class="legend-group-inline">
               <span class="legend-label">Status geral:</span>
               <span class="legend-item" *ngFor="let s of statusLegend">
-                <span class="legend-dot" [ngClass]="legendClassForStatus(s.key)"></span>
-                <span class="legend-text">{{ s.label }}</span>
+                <span class="legend-pill" [ngClass]="legendClassForStatus(s.key)">{{ s.label }}</span>
               </span>
             </div>
             <div class="legend-group-inline">
               <span class="legend-label">Prioridade:</span>
               <span class="legend-item" *ngFor="let p of priorityLegend">
-                <span class="legend-dot" [ngClass]="legendClassForPriority(p.key)"></span>
-                <span class="legend-text">{{ p.label }}</span>
+                <span class="legend-pill" [ngClass]="legendClassForPriority(p.key)">{{ p.label }}</span>
               </span>
             </div>
           </div>
         </div>
-        <po-table [p-columns]="agingColumns" [p-items]="agingPaginatedItems" (p-sort)="onSort($event, 'aging')"></po-table>
+        <po-table [p-columns]="agingColumns" [p-items]="agingPaginatedItems" [p-sort]="true" (p-sort)="onSort($event, 'aging')">
+          <ng-template p-table-column-template [p-property]="'faixaAging'" let-value>
+            <span class="legend-pill" [ngClass]="legendClassForFaixa(normalizeFaixa(value))">{{ getFaixaLabel(value) }}</span>
+          </ng-template>
+          <ng-template p-table-column-template [p-property]="'statusGeral'" let-value>
+            <span class="legend-pill" [ngClass]="legendClassForStatus(normalizeStatus(value))">{{ getStatusLabel(value) }}</span>
+          </ng-template>
+          <ng-template p-table-column-template [p-property]="'prioridade'" let-value>
+            <span class="legend-pill" [ngClass]="legendClassForPriority(normalizePriority(value))">{{ getPriorityLabel(value) }}</span>
+          </ng-template>
+        </po-table>
       </section>
 
       <ng-container *ngIf="!loading && !items.length">
@@ -342,6 +355,33 @@ export class TimelineRecebimentoComponent implements OnInit {
 
   pipelineCategories: string[] = [];
   pipelineSeries: Array<{ name: string; data: number[] }> = [];
+  pipelineChartOptions: any = {
+    xAxis: {
+      labels: {
+        useHTML: true,
+        rotation: 0,
+        style: { fontSize: '11px' }
+      }
+    },
+    yAxis: {
+      title: { text: 'Qtd' }
+    },
+    tooltip: {
+      formatter: function(this: any) {
+        return `<b>${this.y}</b>: ${this.x}`;
+      }
+    },
+    plotOptions: {
+      column: {
+        dataLabels: {
+          enabled: true,
+          formatter: function(this: any) {
+            return this.y.toString();
+          }
+        }
+      }
+    }
+  };
 
   pageSizeOptions: PoSelectOption[] = [
     { label: '10', value: 10 },
@@ -377,6 +417,55 @@ export class TimelineRecebimentoComponent implements OnInit {
 
   legendClassForStatus = (key: string) => this.tagTypeToClass(this.resolveStatusTagType(key));
   legendClassForPriority = (key: string) => this.tagTypeToClass(this.resolveTagType(key));
+  legendClassForFaixa = (key: string) => this.tagTypeToClass(this.resolveFaixaTagType(key));
+
+  getStatusLabel(key: string | undefined | null): string {
+    const v = this.normalizeStatus(key);
+    const found = this.statusLegend.find(s => s.key === v);
+    return found?.label || v || '';
+  }
+
+  getPriorityLabel(key: string | undefined | null): string {
+    const v = this.normalizePriority(key);
+    const found = this.priorityLegend.find(s => s.key === v);
+    return found?.label || v || '';
+  }
+
+  getFaixaLabel(key: string | undefined | null): string {
+    const v = this.normalizeFaixa(key);
+    const map: Record<string, string> = {
+      A_VENCER: 'A vencer',
+      EM_DIA: 'Em dia',
+      VENCIDO_0_30: 'Vencido (0-30)',
+      VENCIDO_31_60: 'Vencido (31-60)',
+      VENCIDO_61_90: 'Vencido (61-90)',
+      VENCIDO_90_MAIS: 'Vencido (90+)',
+      EM_ATRASO: 'Em atraso',
+      VENCIDO: 'Vencido',
+      SEM_CLASSIFICACAO: 'Não classificado'
+    };
+    return map[v] || v || '';
+  }
+
+  private resolveFaixaTagType(value: string | undefined | null): PoTagType {
+    const v = this.normalizeFaixa(value);
+    switch (v) {
+      case 'A_VENCER':
+      case 'EM_DIA':
+        return PoTagType.Success;
+      case 'VENCIDO_0_30':
+      case 'VENCIDO_31_60':
+        return PoTagType.Warning;
+      case 'EM_ATRASO':
+      case 'VENCIDO_61_90':
+      case 'VENCIDO_90_MAIS':
+      case 'VENCIDO':
+        return PoTagType.Danger;
+      case 'SEM_CLASSIFICACAO':
+      default:
+        return PoTagType.Info;
+    }
+  }
 
   private tagTypeToClass(type: PoTagType): string {
     switch (type) {
@@ -522,8 +611,8 @@ export class TimelineRecebimentoComponent implements OnInit {
       { property: 'parcela', label: 'Parcela', width: '80px' },
       { property: 'cliente', label: 'Cliente' },
       { property: 'uf', label: 'UF', width: '60px' },
-      { property: 'prioridade', label: 'Prioridade', type: 'subtitle', subtitles: this.prioritySubtitles, width: '160px' },
-      { property: 'statusGeral', label: 'Status geral', type: 'subtitle', subtitles: this.statusSubtitles, width: '160px' },
+      { property: 'prioridade', label: 'Prioridade', type: 'columnTemplate', width: '180px' },
+      { property: 'statusGeral', label: 'Status geral', type: 'columnTemplate', width: '200px' },
       { property: 'diasEmAtraso', label: 'Dias atraso', type: 'number', width: '120px' },
       { property: 'valor', label: 'Valor', type: 'currency', format: 'BRL' },
       { property: 'saldo', label: 'Saldo', type: 'currency', format: 'BRL' },
@@ -537,9 +626,9 @@ export class TimelineRecebimentoComponent implements OnInit {
       { property: 'parcela', label: 'Parcela', width: '80px' },
       { property: 'cliente', label: 'Cliente' },
       { property: 'uf', label: 'UF', width: '60px' },
-      { property: 'faixaAging', label: 'Faixa aging', type: 'subtitle', subtitles: this.faixaSubtitles, width: '140px' },
-      { property: 'statusGeral', label: 'Status geral', type: 'subtitle', subtitles: this.statusSubtitles, width: '160px' },
-      { property: 'prioridade', label: 'Prioridade', type: 'subtitle', subtitles: this.prioritySubtitles, width: '160px' },
+      { property: 'faixaAging', label: 'Faixa aging', type: 'columnTemplate', width: '180px' },
+      { property: 'statusGeral', label: 'Status geral', type: 'columnTemplate', width: '200px' },
+      { property: 'prioridade', label: 'Prioridade', type: 'columnTemplate', width: '180px' },
       { property: 'diasDesdeEmissao', label: 'Dias da emissão', type: 'number', width: '140px' },
       { property: 'diasParaVencimento', label: 'Dias p/ vencimento', type: 'number', width: '160px' },
       { property: 'diasEmAtraso', label: 'Dias em atraso', type: 'number', width: '140px' },
@@ -577,8 +666,30 @@ export class TimelineRecebimentoComponent implements OnInit {
     const diasDesdeEmissao = Number(aging['diasDesdeEmissao'] ?? 0);
     const diasDesdeRecebimento = Number(aging['diasDesdeRecebimento'] ?? 0);
 
-    const recebimentoStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'RECEBIMENTO_CLIENTE'));
-    const canhotoStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'RETORNO_CANHOTO'));
+    // NOVA LÓGICA: status dos eventos baseados em datas e flags do item
+    const recebimentoStatusFromEventos = this.normalizeEventStatus(this.extractEventStatus(item, 'RECEBIMENTO_CLIENTE'));
+    const canhotoStatusFromEventos = this.normalizeEventStatus(this.extractEventStatus(item, 'RETORNO_CANHOTO'));
+
+    const receivedDate = this.getDateFromKeys(item, ['dataRecebimentoCliente','dtRecebimentoCliente','recebimentoCliente','E1_ZZDTREC']);
+    const retornoDate = this.getDateFromKeys(item, ['dataRecebimentoCanhoto','dtRecebimentoCanhoto','retornoCanhoto','E1_ZZDTRET','dataRetornoCanhoto']);
+
+    const flagRecebido = this.normalizeBase(item.statusCanhotaRecebido);
+    const flagRetorno = this.normalizeBase(item.statusCanhotaRetorno);
+
+    let recebimentoStatus = recebimentoStatusFromEventos;
+    if (this.isValidDateValue(receivedDate) || flagRecebido.includes('BAIX')) {
+      recebimentoStatus = 'CONCLUIDO';
+    } else if (!this.isValidDateValue(receivedDate) && recebimentoStatus === 'NAO_INFORMADO') {
+      recebimentoStatus = 'PENDENTE';
+    }
+
+    let canhotoStatus = canhotoStatusFromEventos;
+    if (this.isValidDateValue(retornoDate) || flagRetorno.includes('BAIX')) {
+      canhotoStatus = 'CONCLUIDO';
+    } else if (!this.isValidDateValue(retornoDate) && canhotoStatus === 'NAO_INFORMADO') {
+      canhotoStatus = 'PENDENTE';
+    }
+
     const baixaStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'BAIXA_FINANCEIRA'));
 
     const baixado = this.isBaixado(item);
@@ -662,7 +773,7 @@ export class TimelineRecebimentoComponent implements OnInit {
     return 'BAIXA';
   }
 
-  private normalizePriority(priority?: string | null): string {
+  normalizePriority(priority?: string | null): string {
     const normalized = this.normalizeBase(priority);
     switch (normalized) {
       case 'CRITICA':
@@ -681,7 +792,7 @@ export class TimelineRecebimentoComponent implements OnInit {
     }
   }
 
-  private normalizeStatus(status?: string | null): string {
+  normalizeStatus(status?: string | null): string {
     const normalized = this.normalizeBase(status);
     switch (normalized) {
       case 'ENTREGUE':
@@ -737,7 +848,7 @@ export class TimelineRecebimentoComponent implements OnInit {
     return 'EM_DIA';
   }
 
-  private normalizeFaixa(faixa?: string | null): string {
+  normalizeFaixa(faixa?: string | null): string {
     const normalized = this.normalizeBase(faixa);
     if (!normalized) {
       return 'SEM_CLASSIFICACAO';
@@ -1020,7 +1131,10 @@ export class TimelineRecebimentoComponent implements OnInit {
       pendingData.push(pending);
     });
 
-    this.pipelineCategories = stages.map(stage => stage.label);
+    const formatLabel = (s: string) => s
+      .replace(' do ', ' do\n')
+      .replace(' da ', ' da\n');
+    this.pipelineCategories = stages.map(stage => formatLabel(stage.label));
     this.pipelineSeries = [
       { name: 'Concluído', data: concludedData },
       { name: 'Pendente', data: pendingData }
@@ -1198,6 +1312,29 @@ export class TimelineRecebimentoComponent implements OnInit {
   private normalizeBase(value?: string | null): string {
     const v = (value || '').toString();
     return v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().trim();
+  }
+
+  // Valida datas em formatos aceitos (YYYYMMDD, YYYY-MM-DD, dd/MM/yyyy), ignorando vazios e 00000000
+  private isValidDateValue(raw?: any): boolean {
+    const s = String(raw ?? '').trim();
+    if (!s) return false;
+    const digits = s.replace(/[^0-9]/g, '');
+    if (digits === '00000000') return false;
+    if (/^\d{8}$/.test(digits)) return true; // TOTVS YYYYMMDD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return true; // ISO
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return true; // BR dd/MM/yyyy
+    return false;
+  }
+
+  // Retorna a primeira data válida encontrada nas chaves fornecidas
+  private getDateFromKeys(obj: any, keys: string[]): string {
+    for (const k of keys) {
+      const val = (obj as any)?.[k];
+      if (this.isValidDateValue(val)) {
+        return String(val);
+      }
+    }
+    return '';
   }
 
   private normalizeEventStatus(status?: string | null): string {
