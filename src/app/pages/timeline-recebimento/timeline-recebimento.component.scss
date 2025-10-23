@@ -27,6 +27,10 @@
   width: 100%;
 }
 
+.summary-grid--pipeline {
+  margin-top: -8px;
+}
+
 .insights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

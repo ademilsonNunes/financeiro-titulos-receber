@@ -36,11 +36,17 @@ interface DashboardViewItem {
   prioridade: string;
   statusGeral: string;
   faixaAging: string;
+  faixaCodigo: string;
   diasEmAtraso: number;
   diasParaVencimento: number;
   diasDesdeEmissao: number;
+  diasDesdeRecebimento: number;
   proximaAcao: string;
   chaveNFe?: string;
+  recebimentoStatus: string;
+  canhotoStatus: string;
+  baixaStatus: string;
+  baixado: boolean;
 }
 
 interface PriorityOverviewItem {
@@ -82,21 +88,29 @@ interface EnrichedItem extends DashboardViewItem {
 
     <ng-container *ngIf="!loading && items.length">
       <section class="summary-grid" role="region" aria-label="Indicadores gerais">
-
+        <po-info p-label="Títulos em carteira" [p-value]="formatNumber(total)"></po-info>
         <po-info p-label="Valor faturado" [p-value]="formatCurrency(valorTotal)"></po-info>
         <po-info p-label="Saldo pendente" [p-value]="formatCurrency(saldoTotal)"></po-info>
-
         <po-info p-label="Ticket médio" [p-value]="formatCurrency(ticketMedio)"></po-info>
         <po-info p-label="Maior atraso" [p-value]="formatDays(maiorAtraso)"></po-info>
-        <po-info p-label="Lead time médio" [p-value]="formatNumber(leadTimeMedio, 1) + ' dias'"></po-info>
+        <po-info p-label="Lead time médio (emissão)" [p-value]="formatNumber(leadTimeMedio, 1) + ' dias'"></po-info>
+        <po-info p-label="Tempo médio desde o recebimento" [p-value]="formatNumber(diasDesdeRecebimentoMedio, 1) + ' dias'"></po-info>
+        <po-info p-label="% da carteira entregue" [p-value]="formatPercent(percentualEntregues)"></po-info>
+        <po-info p-label="Títulos vencidos" [p-value]="formatNumber(titulosVencidos)"></po-info>
+        <po-info p-label="Saldo vencido" [p-value]="formatCurrency(saldoVencido)"></po-info>
+      </section>
 
-        <po-info p-label="Aguardando confirmação" [p-value]="formatNumber(aguardandoConfirmacao)"></po-info>
-        <po-info p-label="Saldo em confirmação" [p-value]="formatCurrency(saldoEmConfirmacao)"></po-info>
-        <po-info p-label="% dentro do SLA (confirmação)" [p-value]="formatPercent(percentualConfirmacaoSLA)"></po-info>
+      <section class="summary-grid summary-grid--pipeline" role="region" aria-label="Indicadores de ciclo de recebimento">
+        <po-info p-label="Recebimentos concluídos" [p-value]="formatNumber(recebimentoConcluido)"></po-info>
+        <po-info p-label="Aguardando confirmação de recebimento" [p-value]="formatNumber(recebimentoPendente)"></po-info>
+        <po-info p-label="Saldo aguardando confirmação" [p-value]="formatCurrency(saldoRecebimentoPendente)"></po-info>
+        <po-info p-label="Canhotos retornados" [p-value]="formatNumber(canhotoConcluido)"></po-info>
+        <po-info p-label="Saldo aguardando canhoto" [p-value]="formatCurrency(saldoCanhotoPendente)"></po-info>
+        <po-info p-label="Saldo aguardando baixa financeira" [p-value]="formatCurrency(saldoBaixaPendente)"></po-info>
       </section>
 
       <section class="insights-grid" role="region" aria-label="Insights rápidos">
-        <po-widget p-title="Maior risco (confirmação)" *ngIf="topPriorityCard">
+        <po-widget p-title="Maior saldo pendente" *ngIf="topPriorityCard">
           <div class="insight">
             <div class="insight-title">{{ topPriorityCard.nf }} • {{ topPriorityCard.cliente }}</div>
             <div class="insight-subtitle">Saldo {{ formatCurrency(topPriorityCard.saldo || 0) }}</div>
@@ -105,7 +119,7 @@ interface EnrichedItem extends DashboardViewItem {
           </div>
         </po-widget>
 
-        <po-widget p-title="Maior backlog por UF (confirmação)" *ngIf="ufComMaiorSaldo">
+        <po-widget p-title="Maior backlog por UF" *ngIf="ufComMaiorSaldo">
           <div class="insight">
             <div class="insight-title">{{ ufComMaiorSaldo.uf }}</div>
             <div class="insight-subtitle">Saldo {{ formatCurrency(ufComMaiorSaldo.saldo || 0) }}</div>
@@ -113,7 +127,7 @@ interface EnrichedItem extends DashboardViewItem {
           </div>
         </po-widget>
 
-        <po-widget p-title="Prioridades da confirmação">
+        <po-widget p-title="Prioridades da carteira">
           <div class="tag-list" *ngIf="priorityOverview.length; else noPriority">
             <div class="tag-row" *ngFor="let prioridade of priorityOverview">
               <po-tag [p-type]="resolveTagType(prioridade.prioridade)" [p-value]="prioridade.prioridade"></po-tag>
@@ -131,21 +145,25 @@ interface EnrichedItem extends DashboardViewItem {
 
       <section class="charts-grid" role="region" aria-label="Visões analíticas">
         <div class="chart-card">
-          <header>Backlog de confirmação por UF</header>
+          <header>Distribuição de títulos por UF</header>
           <po-chart [p-type]="chartTypeColumn" [p-series]="ufSeries" [p-categories]="ufCategories" [p-height]="260"></po-chart>
         </div>
         <div class="chart-card">
-          <header>Distribuição dos títulos em confirmação por status</header>
-          <po-chart 
-            [p-type]="chartTypeBar" 
-            [p-series]="statusSeries" 
-            [p-categories]="statusCategories" 
+          <header>Status geral da carteira</header>
+          <po-chart
+            [p-type]="chartTypeBar"
+            [p-series]="statusSeries"
+            [p-categories]="statusCategories"
             [p-height]="260"
             [p-options]="statusChartOptions">
           </po-chart>
         </div>
+        <div class="chart-card">
+          <header>Etapas do ciclo de recebimento</header>
+          <po-chart [p-type]="chartTypeColumn" [p-series]="pipelineSeries" [p-categories]="pipelineCategories" [p-height]="260"></po-chart>
+        </div>
         <div class="chart-card chart-card--full">
-          <header>Distribuição da Carteira por Faixa de Atraso</header>
+          <header>Distribuição da carteira por faixa de atraso</header>
           <po-chart [p-type]="chartTypeBar" [p-series]="agingSeries" [p-categories]="agingCategories" [p-height]="300"></po-chart>
           <po-table [p-columns]="agingResumoColumns" [p-items]="agingResumoItems"></po-table>
         </div>
@@ -153,7 +171,7 @@ interface EnrichedItem extends DashboardViewItem {
 
       <section class="prioridades" role="region" aria-label="Fila de prioridades">
         <div class="section-header">
-          <h3>Fila de Prioridades (confirmação)</h3>
+          <h3>Fila de prioridades</h3>
           <div class="pagination">
             <po-button p-label="Anterior" (p-click)="goPrev('priority')" [p-disabled]="priorityPageIndex <= 1"></po-button>
             <po-button p-label="Próxima" (p-click)="goNext('priority')" [p-disabled]="priorityPageIndex >= priorityTotalPages"></po-button>
@@ -188,7 +206,7 @@ interface EnrichedItem extends DashboardViewItem {
 
       <section class="aging-board" role="region" aria-label="Carteira por aging">
         <div class="section-header">
-          <h3>Carteira por Aging</h3>
+          <h3>Carteira por aging</h3>
           <div class="pagination">
             <po-button p-label="Anterior" (p-click)="goPrev('aging')" [p-disabled]="agingPageIndex <= 1"></po-button>
             <po-button p-label="Próxima" (p-click)="goNext('aging')" [p-disabled]="agingPageIndex >= agingTotalPages"></po-button>
@@ -243,10 +261,10 @@ export class TimelineRecebimentoComponent implements OnInit {
 
   loading = false;
   items: TimelineRecebimentoItem[] = [];
+  enrichedItems: EnrichedItem[] = [];
 
   chartTypeBar: PoChartType = PoChartType.Bar;
   chartTypeColumn: PoChartType = PoChartType.Column;
-  chartTypeDonut: PoChartType = PoChartType.Donut;
 
   total = 0;
   valorTotal = 0;
@@ -258,12 +276,22 @@ export class TimelineRecebimentoComponent implements OnInit {
   percentualBaixados = 0;
   leadTimeMedio = 0;
   maiorAtraso = 0;
+  diasDesdeRecebimentoMedio = 0;
   ultimaAtualizacao: string | null = null;
 
-  // Indicadores focados em confirmação de entrega
-  aguardandoConfirmacao = 0;
-  saldoEmConfirmacao = 0;
-  percentualConfirmacaoSLA = 0;
+  percentualEntregues = 0;
+  titulosVencidos = 0;
+  saldoVencido = 0;
+
+  recebimentoConcluido = 0;
+  recebimentoPendente = 0;
+  saldoRecebimentoPendente = 0;
+  canhotoConcluido = 0;
+  canhotoPendente = 0;
+  saldoCanhotoPendente = 0;
+  baixaPendente = 0;
+  saldoBaixaPendente = 0;
+
   ufCategories: string[] = [];
   ufSeries: Array<{ name: string; data: number[] }> = [];
 
@@ -312,6 +340,9 @@ export class TimelineRecebimentoComponent implements OnInit {
   ];
   agingResumoItems: Array<{ faixa: string; quantidade: number; valorInicial: number }> = [];
 
+  pipelineCategories: string[] = [];
+  pipelineSeries: Array<{ name: string; data: number[] }> = [];
+
   pageSizeOptions: PoSelectOption[] = [
     { label: '10', value: 10 },
     { label: '20', value: 20 },
@@ -327,11 +358,14 @@ export class TimelineRecebimentoComponent implements OnInit {
 
   // Legendas compactas (status geral e prioridade)
   statusLegend = [
-    { key: 'CRÍTICO', label: 'Crítico' },
+    { key: 'ENTREGUE', label: 'Entregue' },
+    { key: 'CANHOTO_RETORNADO', label: 'Canhoto retornado' },
+    { key: 'EM_DIA', label: 'Em dia' },
+    { key: 'ATENCAO', label: 'Atenção' },
     { key: 'EM_ATRASO', label: 'Em atraso' },
+    { key: 'CRÍTICO', label: 'Crítico' },
     { key: 'PENDENTE', label: 'Pendente' },
-    { key: 'REGULARIZADO', label: 'Regularizado / Monitoramento' },
-    { key: 'EM_DIA', label: 'Em dia' }
+    { key: 'REGULARIZADO', label: 'Regularizado / Monitoramento' }
   ];
 
   priorityLegend = [
@@ -380,9 +414,6 @@ export class TimelineRecebimentoComponent implements OnInit {
     return Math.min(this.priorityItems.length, this.priorityFromIndex + this.priorityPageSize);
   }
 
-  priorityDonutSeries: Array<{ label: string; data: number }> = [];
-  priorityDonutLegend: Array<{ label: string; count: number; pct: number }> = [];
-
   priorityOverview: PriorityOverviewItem[] = [];
   ufComMaiorSaldo?: UfSaldoResumo;
   topPriorityCard: DashboardViewItem | null = null;
@@ -403,6 +434,7 @@ export class TimelineRecebimentoComponent implements OnInit {
     faixaAging: 'Faixa aging',
     diasEmAtraso: 'Dias em atraso',
     diasDesdeEmissao: 'Dias da emissão',
+    diasDesdeRecebimento: 'Dias desde o recebimento',
     diasParaVencimento: 'Dias p/ vencimento',
     valor: 'Valor',
     saldo: 'Saldo',
@@ -422,16 +454,23 @@ export class TimelineRecebimentoComponent implements OnInit {
   ];
 
   statusSubtitles: PoTableSubtitleColumn[] = [
+    { value: 'ENTREGUE', color: 'color-10', label: 'Entregue', content: 'Entregue' },
+    { value: 'CANHOTO_RETORNADO', color: 'color-11', label: 'Canhoto retornado', content: 'Canhoto retornado' },
     { value: 'EM_DIA', color: 'color-10', label: 'Em dia', content: 'Em dia' },
+    { value: 'ATENCAO', color: 'color-09', label: 'Atenção', content: 'Atenção' },
     { value: 'EM_ATRASO', color: 'color-08', label: 'Em atraso', content: 'Em atraso' },
     { value: 'CRÍTICO', color: 'color-07', label: 'Crítico', content: 'Crítico' },
     { value: 'PENDENTE', color: 'color-03', label: 'Pendente', content: 'Pendente' },
-    { value: 'REGULARIZADO', color: 'color-11', label: 'Regularizado / Monitoramento', content: 'Regularizado / Monitoramento' },
+    { value: 'REGULARIZADO', color: 'color-12', label: 'Regularizado / Monitoramento', content: 'Regularizado / Monitoramento' },
   ];
 
   faixaSubtitles: PoTableSubtitleColumn[] = [
     { value: 'A_VENCER', color: 'color-10', label: 'A vencer', content: 'A vencer' },
     { value: 'EM_DIA', color: 'color-11', label: 'Em dia', content: 'Em dia' },
+    { value: 'VENCIDO_0_30', color: 'color-07', label: 'Vencido (0-30)', content: 'Vencido (0-30)' },
+    { value: 'VENCIDO_31_60', color: 'color-09', label: 'Vencido (31-60)', content: 'Vencido (31-60)' },
+    { value: 'VENCIDO_61_90', color: 'color-09', label: 'Vencido (61-90)', content: 'Vencido (61-90)' },
+    { value: 'VENCIDO_90_MAIS', color: 'color-07', label: 'Vencido (90+)', content: 'Vencido (90+)' },
     { value: 'EM_ATRASO', color: 'color-08', label: 'Em atraso', content: 'Em atraso' },
     { value: 'VENCIDO', color: 'color-07', label: 'Vencido', content: 'Vencido' },
     { value: 'SEM_CLASSIFICACAO', color: 'color-03', label: 'Não classificado', content: 'Não classificado' },
@@ -514,12 +553,7 @@ export class TimelineRecebimentoComponent implements OnInit {
     const aging = (item.aging || {}) as Record<string, any>;
     const saldo = Number(item.saldo ?? 0);
     const valor = Number(item.valor ?? saldo);
-    // Normaliza e corrige a próxima ação: "Aguardando baixa financeira" -> "Aguardando confirmação de entrega"
-    let proximaAcao = (item as any)['proximaAcao']?.descricao || '';
-    const acaoNorm = String(proximaAcao || '').toUpperCase();
-    if (acaoNorm.includes('AGUARDANDO BAIXA FINANCEIRA')) {
-      proximaAcao = 'Aguardando confirmação de entrega';
-    }
+    const proximaAcao = String((item as any)['proximaAcao']?.descricao || '');
 
     // Fator Cliente (10 = estratégico, 5 = regular, 15 = histórico ruim)
     const fatorCliente = Number((item as any)['fatorCliente'] ?? 5);
@@ -533,16 +567,27 @@ export class TimelineRecebimentoComponent implements OnInit {
     const prioridadeScore = this.priorityFromScore(scoreCalc);
 
     const prioridade = this.normalizePriority((item as any)['proximaAcao']?.prioridade || this.higherPriority(prioridadeRegra, prioridadeScore));
-    const statusGeral = this.computeStatus(aging, prioridade, proximaAcao);
-    const faixaAging = this.normalizeFaixa(aging['faixaAging']);
+
+    const rawStatus = (aging as any)['statusGeral'];
+    const statusFromApi = rawStatus ? this.normalizeStatus(rawStatus) : '';
+    const statusGeral = statusFromApi || this.computeStatus(aging, prioridade, proximaAcao);
+
+    const faixaCodigo = this.normalizeFaixa(aging['faixaAging']);
     const diasParaVencimento = Number(aging['diasParaVencimento'] ?? 0);
     const diasDesdeEmissao = Number(aging['diasDesdeEmissao'] ?? 0);
+    const diasDesdeRecebimento = Number(aging['diasDesdeRecebimento'] ?? 0);
+
+    const recebimentoStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'RECEBIMENTO_CLIENTE'));
+    const canhotoStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'RETORNO_CANHOTO'));
+    const baixaStatus = this.normalizeEventStatus(this.extractEventStatus(item, 'BAIXA_FINANCEIRA'));
+
+    const baixado = this.isBaixado(item);
 
     // Score usado para ordenação das filas (mantém compatibilidade)
     let score = scoreCalc;
     const rank = this.priorityRank(prioridade);
     score += rank * 100000;
-    if (this.isBaixado(item)) {
+    if (baixado) {
       score = -Infinity;
     }
 
@@ -557,12 +602,18 @@ export class TimelineRecebimentoComponent implements OnInit {
       saldo,
       prioridade,
       statusGeral,
-      faixaAging,
+      faixaAging: faixaCodigo,
+      faixaCodigo,
       diasEmAtraso,
       diasParaVencimento,
       diasDesdeEmissao,
+      diasDesdeRecebimento,
       proximaAcao,
       chaveNFe: item.chaveNFe,
+      recebimentoStatus,
+      canhotoStatus,
+      baixaStatus,
+      baixado,
       score,
     };
   }
@@ -633,6 +684,13 @@ export class TimelineRecebimentoComponent implements OnInit {
   private normalizeStatus(status?: string | null): string {
     const normalized = this.normalizeBase(status);
     switch (normalized) {
+      case 'ENTREGUE':
+        return 'ENTREGUE';
+      case 'CANHOTORETORNADO':
+      case 'CANHOTO_RETORNADO':
+        return 'CANHOTO_RETORNADO';
+      case 'ATENCAO':
+        return 'ATENCAO';
       case 'EM_ATRASO':
         return 'EM_ATRASO';
       case 'EM_DIA':
@@ -681,7 +739,28 @@ export class TimelineRecebimentoComponent implements OnInit {
 
   private normalizeFaixa(faixa?: string | null): string {
     const normalized = this.normalizeBase(faixa);
-    switch (normalized) {
+    if (!normalized) {
+      return 'SEM_CLASSIFICACAO';
+    }
+
+    const plain = normalized.replace(/[()]/g, '');
+    const has = (pattern: RegExp) => pattern.test(plain);
+
+    if (has(/VENCIDO.*0\s*[-A]\s*30/)) {
+      return 'VENCIDO_0_30';
+    }
+    if (has(/VENCIDO.*31\s*[-A]\s*60/)) {
+      return 'VENCIDO_31_60';
+    }
+    if (has(/VENCIDO.*61\s*[-A]\s*90/)) {
+      return 'VENCIDO_61_90';
+    }
+    if (has(/VENCIDO.*90\s*\+/) || has(/VENCIDO.*90\s*MAIS/)) {
+      return 'VENCIDO_90_MAIS';
+    }
+
+    const sanitized = plain.replace(/[^A-Z0-9_]/g, '_');
+    switch (sanitized) {
       case 'A_VENCER':
       case 'AVENCER':
         return 'A_VENCER';
@@ -693,10 +772,21 @@ export class TimelineRecebimentoComponent implements OnInit {
       case 'VENCIDO':
       case 'VENCIDOS':
         return 'VENCIDO';
-      case '':
+      case 'VENCIDO_0_30':
+        return 'VENCIDO_0_30';
+      case 'VENCIDO_31_60':
+        return 'VENCIDO_31_60';
+      case 'VENCIDO_61_90':
+        return 'VENCIDO_61_90';
+      case 'VENCIDO_90_MAIS':
+      case 'VENCIDO_90_':
+      case 'VENCIDO_90':
+      case 'VENCIDO90':
+        return 'VENCIDO_90_MAIS';
+      case 'SEM_CLASSIFICACAO':
         return 'SEM_CLASSIFICACAO';
       default:
-        return normalized;
+        return sanitized || 'SEM_CLASSIFICACAO';
     }
   }
 
@@ -705,8 +795,9 @@ export class TimelineRecebimentoComponent implements OnInit {
     this.service.list().subscribe({
       next: (arr) => {
         this.items = Array.isArray(arr) ? arr : [];
-        this.computeSummary();
-        this.buildAnalytics();
+        this.enrichedItems = this.items.map(item => this.enrichItem(item));
+        this.computeSummary(this.enrichedItems);
+        this.buildAnalytics(this.enrichedItems);
         this.loading = false;
       },
       error: () => {
@@ -715,118 +806,178 @@ export class TimelineRecebimentoComponent implements OnInit {
     });
   }
 
-  private computeSummary(): void {
-    this.total = this.items.length;
-    const sumReducer = (acc: number, value?: number) => acc + (Number(value) || 0);
-    this.valorTotal = this.items.reduce((acc, it) => sumReducer(acc, it.valor), 0);
-    this.saldoTotal = this.items.reduce((acc, it) => sumReducer(acc, it.saldo), 0);
+  private computeSummary(enriched: EnrichedItem[]): void {
+    this.total = enriched.length;
 
-    const baixadoPredicate = (it: TimelineRecebimentoItem) => this.isBaixado(it);
-    this.baixados = this.items.filter(baixadoPredicate).length;
-    const pend = this.items.filter(it => !baixadoPredicate(it));
-    this.pendentes = pend.length;
+    const sumValor = (key: 'valor' | 'saldo') => enriched.reduce((acc, it) => acc + (Number(it[key]) || 0), 0);
+    this.valorTotal = sumValor('valor');
+    this.saldoTotal = sumValor('saldo');
+
+    const baixadoPredicate = (it: EnrichedItem) => it.baixado;
+    this.baixados = enriched.filter(baixadoPredicate).length;
+    const pendentes = enriched.filter(it => !baixadoPredicate(it));
+    this.pendentes = pendentes.length;
     this.percentualBaixados = this.total ? (this.baixados / this.total) * 100 : 0;
 
-    const diasAtrasoList = this.items.map(it => this.getDiasEmAtraso(it.aging));
-    this.atrasados = pend.filter(it => this.getDiasEmAtraso(it.aging) > 0).length;
-    this.maiorAtraso = Math.max(0, ...diasAtrasoList);
+    const diasAtrasoList = enriched.map(it => Number(it.diasEmAtraso) || 0);
+    this.atrasados = pendentes.filter(it => (it.diasEmAtraso || 0) > 0).length;
+    this.maiorAtraso = diasAtrasoList.length ? Math.max(0, ...diasAtrasoList) : 0;
 
-    const diasDesdeEmissaoList = this.items.map(it => Number((it.aging || {})['diasDesdeEmissao'] ?? 0));
-    const somaDias = diasDesdeEmissaoList.reduce((acc, val) => acc + (Number.isFinite(val) ? val : 0), 0);
-    this.leadTimeMedio = diasDesdeEmissaoList.length ? somaDias / diasDesdeEmissaoList.length : 0;
+    const diasDesdeEmissaoList = enriched.map(it => Number(it.diasDesdeEmissao) || 0);
+    const somaDiasEmissao = diasDesdeEmissaoList.reduce((acc, val) => acc + (Number.isFinite(val) ? val : 0), 0);
+    this.leadTimeMedio = diasDesdeEmissaoList.length ? somaDiasEmissao / diasDesdeEmissaoList.length : 0;
+
+    const diasDesdeRecebimentoList = enriched.map(it => Number(it.diasDesdeRecebimento) || 0);
+    const somaDiasRecebimento = diasDesdeRecebimentoList.reduce((acc, val) => acc + (Number.isFinite(val) ? val : 0), 0);
+    this.diasDesdeRecebimentoMedio = diasDesdeRecebimentoList.length ? somaDiasRecebimento / diasDesdeRecebimentoList.length : 0;
 
     this.ticketMedio = this.total ? this.valorTotal / this.total : 0;
+
+    const statusCounts: Record<string, number> = {};
+    enriched.forEach(it => {
+      const status = this.normalizeStatus(it.statusGeral);
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+    const entregues = (statusCounts['ENTREGUE'] || 0) + (statusCounts['CANHOTO_RETORNADO'] || 0);
+    this.percentualEntregues = this.total ? (entregues / this.total) * 100 : 0;
+
+    const vencidos = enriched.filter(it => {
+      const code = this.normalizeFaixa(it.faixaCodigo || it.faixaAging);
+      return code.startsWith('VENCIDO') || code === 'EM_ATRASO';
+    });
+    this.titulosVencidos = vencidos.length;
+    this.saldoVencido = vencidos.reduce((acc, it) => acc + (Number(it.saldo) || 0), 0);
+
+    this.recebimentoConcluido = 0;
+    this.recebimentoPendente = 0;
+    this.saldoRecebimentoPendente = 0;
+    this.canhotoConcluido = 0;
+    this.canhotoPendente = 0;
+    this.saldoCanhotoPendente = 0;
+    this.baixaPendente = 0;
+    this.saldoBaixaPendente = 0;
+
+    enriched.forEach(it => {
+      const saldo = Number(it.saldo) || 0;
+
+      const receb = this.normalizeEventStatus(it.recebimentoStatus);
+      if (receb === 'CONCLUIDO' || receb === 'NAO_APLICA') {
+        this.recebimentoConcluido += 1;
+      } else {
+        this.recebimentoPendente += 1;
+        this.saldoRecebimentoPendente += saldo;
+      }
+
+      const canhoto = this.normalizeEventStatus(it.canhotoStatus);
+      if (canhoto === 'CONCLUIDO' || canhoto === 'NAO_APLICA') {
+        this.canhotoConcluido += 1;
+      } else {
+        this.canhotoPendente += 1;
+        this.saldoCanhotoPendente += saldo;
+      }
+
+      const baixa = this.normalizeEventStatus(it.baixaStatus);
+      if (baixa !== 'CONCLUIDO' && baixa !== 'NAO_APLICA') {
+        this.baixaPendente += 1;
+        this.saldoBaixaPendente += saldo;
+      }
+    });
 
     this.ultimaAtualizacao = this.computeUltimaAtualizacao();
   }
 
-  private buildAnalytics(): void {
-    const enriched = this.items
-      .filter(item => !this.isBaixado(item))
-      .map(item => this.enrichItem(item));
+  private buildAnalytics(enriched: EnrichedItem[]): void {
+    const ativos = enriched.filter(item => !item.baixado);
 
-    // Métricas focadas em confirmação de entrega
-    const confirmacaoItems = enriched.filter(it => this.normalizeBase(it.proximaAcao).includes('CONFIRMACAO DE ENTREGA'));
-    this.aguardandoConfirmacao = confirmacaoItems.length;
-    this.saldoEmConfirmacao = confirmacaoItems.reduce((acc, it) => acc + (it.saldo || 0), 0);
-    const dentroSLA = confirmacaoItems.filter(it => (it.diasEmAtraso <= 0) && (it.diasParaVencimento > 3)).length;
-    this.percentualConfirmacaoSLA = confirmacaoItems.length ? (dentroSLA / confirmacaoItems.length) * 100 : 0;
+    this.buildCharts(ativos);
+    this.buildPriorities(ativos);
+    this.buildAgingList(ativos);
+    this.preparePipelineChart(enriched);
 
-    this.buildCharts(enriched);
-
-    // Popular tabelas detalhadas
-    this.buildPriorities(enriched);
-    this.buildAgingList(enriched);
-
-    // Aplicar ordenação padrão
-    this.prioritySortProp = 'diasEmAtraso' as any; this.prioritySortAsc = false;
-    this.agingSortProp = 'diasEmAtraso' as any; this.agingSortAsc = false;
+    this.prioritySortProp = 'diasEmAtraso' as any;
+    this.prioritySortAsc = false;
+    this.agingSortProp = 'diasEmAtraso' as any;
+    this.agingSortAsc = false;
     this.applyCurrentSort('priority');
     this.applyCurrentSort('aging');
   }
 
   private buildCharts(enriched: EnrichedItem[]): void {
-    const confirmacaoBase = enriched.filter(it => this.normalizeBase(it.proximaAcao).includes('CONFIRMACAO DE ENTREGA'));
-
-    // Saldo por UF focado em confirmação
     const byUf: Record<string, { count: number; saldo: number }> = {};
-    
-    confirmacaoBase.forEach(it => {
+    enriched.forEach(it => {
       const uf = it.uf || 'N/D';
-      byUf[uf] = byUf[uf] || { count: 0, saldo: 0 };
+      if (!byUf[uf]) {
+        byUf[uf] = { count: 0, saldo: 0 };
+      }
       byUf[uf].count += 1;
-      byUf[uf].saldo += it.saldo;
+      byUf[uf].saldo += Number(it.saldo) || 0;
     });
-    // Ordenar categorias por quantidade de títulos (não por valor)
-    this.ufCategories = Object.keys(byUf).sort((a, b) => byUf[b].count - byUf[a].count);
-    // Série do gráfico mostra quantidade de títulos por UF
-    this.ufSeries = this.ufCategories.length
-      ? [{ name: 'Títulos', data: this.ufCategories.map(uf => byUf[uf].count) }]
+
+    const ufEntries = Object.entries(byUf).sort((a, b) => b[1].saldo - a[1].saldo);
+    const topUfEntries = ufEntries.slice(0, 10);
+    this.ufCategories = topUfEntries.map(([uf]) => uf);
+    this.ufSeries = topUfEntries.length
+      ? [{ name: 'Títulos', data: topUfEntries.map(([, stats]) => stats.count) }]
       : [];
 
-    // Card de "Maior backlog por UF": mantém cálculo baseado em saldo total
-    const allUFs = Object.keys(byUf);
-    if (allUFs.length) {
-      const maxUFBySaldo = allUFs.reduce((maxUF, uf) => byUf[uf].saldo > byUf[maxUF].saldo ? uf : maxUF, allUFs[0]);
+    if (topUfEntries.length) {
+      const [uf, stats] = topUfEntries[0];
       this.ufComMaiorSaldo = {
-        uf: maxUFBySaldo,
-        saldo: byUf[maxUFBySaldo].saldo,
-        percentual: this.saldoTotal ? (byUf[maxUFBySaldo].saldo / this.saldoTotal) * 100 : 0,
+        uf,
+        saldo: stats.saldo,
+        percentual: this.saldoTotal ? (stats.saldo / this.saldoTotal) * 100 : 0,
       };
     } else {
       this.ufComMaiorSaldo = undefined;
     }
 
-    // Distribuição por status dentro da confirmação
-    const statusMap: Record<string, number> = {};
-    confirmacaoBase.forEach(it => {
+    const statusCounts: Record<string, number> = {};
+    enriched.forEach(it => {
       const status = this.normalizeStatus(it.statusGeral);
-      statusMap[status] = (statusMap[status] || 0) + 1;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
-    
-    // Mapear status normalizados para labels legíveis
-    const statusLabelMap: Record<string, string> = {
-      'CRÍTICO': 'Crítico',
-      'EM_ATRASO': 'Em atraso',
-      'PENDENTE': 'Pendente',
-      'REGULARIZADO': 'Regularizado/Monitoramento',
-      'EM_DIA': 'Em dia'
-    };
-    
-    // Usar labels legíveis como categorias
-    this.statusCategories = Object.keys(statusMap).map(status => statusLabelMap[status] || status);
-    this.statusSeries = this.statusCategories.length
-      ? [{ name: 'Títulos', data: Object.keys(statusMap).map(st => statusMap[st]) }]
-      : [];
 
-    // Buckets de aging para visão geral (mantém carteira completa)
+    const legendMap = this.statusLegend.reduce((acc, entry) => {
+      acc[entry.key] = entry.label;
+      return acc;
+    }, {} as Record<string, string>);
+
+    const categories: string[] = [];
+    const data: number[] = [];
+    const handled = new Set<string>();
+
+    this.statusLegend.forEach(entry => {
+      const value = statusCounts[entry.key];
+      if (value) {
+        categories.push(entry.label);
+        data.push(value);
+        handled.add(entry.key);
+      }
+    });
+
+    Object.keys(statusCounts).forEach(key => {
+      if (handled.has(key)) {
+        return;
+      }
+      categories.push(legendMap[key] || key);
+      data.push(statusCounts[key]);
+    });
+
+    this.statusCategories = categories;
+    this.statusSeries = categories.length ? [{ name: 'Títulos', data }] : [];
+
     const bucketDefs = this.getAgingBuckets();
-    const agingBuckets: Array<{ label: string; quantidade: number; valorInicial: number; valorCorrigido: number }> = bucketDefs.map(b => ({ label: b.label, quantidade: 0, valorInicial: 0, valorCorrigido: 0 }));
+    const agingBuckets: Array<{ label: string; quantidade: number; valorInicial: number; valorCorrigido: number }> = bucketDefs.map(b => ({
+      label: b.label,
+      quantidade: 0,
+      valorInicial: 0,
+      valorCorrigido: 0
+    }));
 
     enriched.forEach(it => {
-      const dias = it.diasEmAtraso || 0;
-      const valorInicial = it.valor || 0;
-      const valorCorrigido = it.saldo || 0;
+      const dias = Number(it.diasEmAtraso) || 0;
+      const valorInicial = Number(it.valor) || 0;
+      const valorCorrigido = Number(it.saldo) || 0;
       const idx = bucketDefs.findIndex(b => dias >= b.min && dias <= b.max);
       if (idx >= 0) {
         agingBuckets[idx].quantidade += 1;
@@ -837,20 +988,43 @@ export class TimelineRecebimentoComponent implements OnInit {
 
     this.agingCategories = agingBuckets.map(b => b.label);
     this.agingSeries = [{ name: 'Quantidade', data: agingBuckets.map(b => b.quantidade) }];
-    this.agingResumoItems = agingBuckets.map(b => ({ faixa: b.label, quantidade: b.quantidade, valorInicial: Number(b.valorInicial.toFixed(2)) }));
+    this.agingResumoItems = agingBuckets.map(b => ({
+      faixa: b.label,
+      quantidade: b.quantidade,
+      valorInicial: Number(b.valorInicial.toFixed(2))
+    }));
+  }
 
-    // Prioridades dentro da confirmação
-    const priorityMap: Record<string, number> = {};
-    confirmacaoBase.forEach(it => {
-      const prioridade = this.normalizePriority(it.prioridade);
-      priorityMap[prioridade] = (priorityMap[prioridade] || 0) + 1;
+  private preparePipelineChart(enriched: EnrichedItem[]): void {
+    const stages: Array<{ key: 'recebimentoStatus' | 'canhotoStatus' | 'baixaStatus'; label: string }> = [
+      { key: 'recebimentoStatus', label: 'Recebimento do cliente' },
+      { key: 'canhotoStatus', label: 'Retorno do canhoto' },
+      { key: 'baixaStatus', label: 'Baixa financeira' }
+    ];
+
+    const concludedData: number[] = [];
+    const pendingData: number[] = [];
+
+    stages.forEach(stage => {
+      let concluded = 0;
+      let pending = 0;
+      enriched.forEach(item => {
+        const status = this.normalizeEventStatus((item as any)[stage.key]);
+        if (status === 'CONCLUIDO' || status === 'NAO_APLICA') {
+          concluded += 1;
+        } else {
+          pending += 1;
+        }
+      });
+      concludedData.push(concluded);
+      pendingData.push(pending);
     });
-    const priorityKeys = Object.keys(priorityMap).sort((a, b) => this.priorityRank(b) - this.priorityRank(a));
-    this.priorityDonutSeries = priorityKeys.map(key => ({ label: key, data: priorityMap[key] }));
-    const totalPriority = priorityKeys.reduce((acc, key) => acc + (priorityMap[key] || 0), 0);
-    this.priorityDonutLegend = priorityKeys.map(key => ({ label: key, count: priorityMap[key], pct: totalPriority ? (priorityMap[key] * 100) / totalPriority : 0 }));
 
-
+    this.pipelineCategories = stages.map(stage => stage.label);
+    this.pipelineSeries = [
+      { name: 'Concluído', data: concludedData },
+      { name: 'Pendente', data: pendingData }
+    ];
   }
 
   private getAgingBuckets(): Array<{ label: string; min: number; max: number }> {
@@ -866,8 +1040,7 @@ export class TimelineRecebimentoComponent implements OnInit {
   }
 
   private buildPriorities(enriched: EnrichedItem[]): void {
-    const confirmacaoBase = enriched.filter(it => this.normalizeBase(it.proximaAcao).includes('CONFIRMACAO DE ENTREGA'));
-    const base = confirmacaoBase.length ? confirmacaoBase : enriched;
+    const base = enriched;
 
     const sorted = [...base].sort((a, b) => b.score - a.score);
     this.priorityItems = sorted.slice(0, Math.min(30, sorted.length)).map(({ score, ...rest }) => rest);
@@ -1011,6 +1184,7 @@ export class TimelineRecebimentoComponent implements OnInit {
       case 'faixaAging':
         return this.normalizeFaixa((item as any).faixaAging);
       case 'diasDesdeEmissao':
+      case 'diasDesdeRecebimento':
       case 'diasParaVencimento':
       case 'diasEmAtraso':
       case 'valor':
@@ -1024,6 +1198,35 @@ export class TimelineRecebimentoComponent implements OnInit {
   private normalizeBase(value?: string | null): string {
     const v = (value || '').toString();
     return v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().trim();
+  }
+
+  private normalizeEventStatus(status?: string | null): string {
+    const normalized = this.normalizeBase(status);
+    switch (normalized) {
+      case 'CONCLUIDO':
+      case 'CONCLUIDA':
+        return 'CONCLUIDO';
+      case 'PENDENTE':
+      case 'EM_ABERTO':
+      case 'AGUARDANDO':
+      case 'AGUARDANDOCONFIRMACAO':
+      case 'EM_ANDAMENTO':
+        return 'PENDENTE';
+      case 'NAO_APLICA':
+      case 'NAO_SE_APLICA':
+      case 'NAO_APLICAVEL':
+        return 'NAO_APLICA';
+      case '':
+        return 'NAO_INFORMADO';
+      default:
+        return normalized;
+    }
+  }
+
+  private extractEventStatus(item: TimelineRecebimentoItem, type: string): string {
+    const eventos = Array.isArray((item as any)?.eventos) ? (item as any).eventos as Array<{ tipo?: string; status?: string }> : [];
+    const target = eventos.find(evento => this.normalizeBase(evento?.tipo) === this.normalizeBase(type));
+    return target?.status || '';
   }
 
   private priorityRank(priority: string | undefined): number {
@@ -1107,9 +1310,14 @@ export class TimelineRecebimentoComponent implements OnInit {
   resolveStatusTagType(value: string | undefined | null): PoTagType {
     const v = this.normalizeStatus(value);
     switch (v) {
+      case 'ENTREGUE':
+      case 'CANHOTO_RETORNADO':
+        return PoTagType.Success;
       case 'CRÍTICO':
         return PoTagType.Danger;
       case 'EM_ATRASO':
+        return PoTagType.Warning;
+      case 'ATENCAO':
         return PoTagType.Warning;
       case 'PENDENTE':
         return PoTagType.Info;
