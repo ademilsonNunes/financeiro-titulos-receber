@@ -1,5 +1,5 @@
 {
-  "name": "logistica-canhotos",
+  "name": "financeiro-titulos-receber",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
@@ -10,7 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:e2e": "playwright test -c playwright.config.ts",
-    "serve:ssr:logistica-canhotos": "node dist/logistica-canhotos/server/server.mjs"
+    "serve:ssr:financeiro-titulos-receber": "node dist/financeiro-titulos-receber/server/server.mjs"
   },
   "private": true,
   "dependencies": {
