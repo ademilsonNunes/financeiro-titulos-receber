@@ -1,5 +1,5 @@
-Logística Canhotos
-Sistema de gerenciamento logístico desenvolvido com Angular.
+Financeiro • Títulos a Receber
+Sistema de gestão financeira (contas a receber) desenvolvido com Angular.
 🚀 Tecnologias
 
 Angular 17.3.17
@@ -14,10 +14,10 @@ Angular CLI (npm install -g @angular/cli)
 
 🔧 Instalação
 bash# Clone o repositório
-git clone [url-do-repositorio]
+git clone https://github.com/ademilsonNunes/financeiro-titulos-receber.git
 
 # Entre no diretório
-cd logistica-canhotos
+cd financeiro-titulos-receber
 
 # Instale as dependências
 npm install
