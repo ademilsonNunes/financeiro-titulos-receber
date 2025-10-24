@@ -65,6 +65,66 @@ interface EnrichedItem extends DashboardViewItem {
   score: number;
 }
 
+type StageKey =
+  | 'emissao'
+  | 'recebimentoCliente'
+  | 'entregaLogistica'
+  | 'aguardandoCanhoto'
+  | 'borderoFinanceiro'
+  | 'retornoCanhoto'
+  | 'baixaFinanceira';
+
+interface StageMetric {
+  id: StageKey;
+  label: string;
+  shortLabel: string;
+  description: string;
+  base: number;
+  concluido: number;
+  pendente: number;
+  percentualConclusao: number;
+  saldoPendente: number;
+  tempoMedioDias: number;
+  tempoMedioPendente: number;
+  tempoMaxPendente: number;
+  criticos: number;
+  thresholdDias: number;
+}
+
+interface OperationalAlert {
+  stageId: StageKey;
+  label: string;
+  description: string;
+  pendentes: number;
+  saldoPendente: number;
+  tempoMedioPendente: number;
+  tempoMaxPendente: number;
+  criticos: number;
+  percentualConclusao: number;
+}
+
+interface ItemOperationalContext {
+  valor: number;
+  saldo: number;
+  diasEmAtraso: number;
+  diasDesdeEmissao: number;
+  diasDesdeRecebimento: number;
+  dates: {
+    emissao: Date | null;
+    recebimentoCliente: Date | null;
+    entrega: Date | null;
+    retornoCanhoto: Date | null;
+    baixaFinanceira: Date | null;
+  };
+  flags: {
+    emissao: boolean;
+    recebimentoCliente: boolean;
+    entrega: boolean;
+    retornoCanhoto: boolean;
+    baixaFinanceira: boolean;
+  };
+}
+
 @Component({
   selector: 'app-timeline-recebimento',
   standalone: true,
@@ -143,6 +203,76 @@ interface EnrichedItem extends DashboardViewItem {
         </po-widget>
       </section>
 
+      <section class="operational-flow" role="region" aria-label="Fluxo operacional do título" *ngIf="operationalFlowMetrics.length">
+        <div class="operational-flow__header">
+          <div>
+            <h3>Fluxo operacional</h3>
+            <p>Visão consolidada das etapas de logística e financeiro para cada título.</p>
+          </div>
+          <span class="operational-flow__update" *ngIf="ultimaAtualizacao">Atualizado em {{ ultimaAtualizacao }}</span>
+        </div>
+        <div class="operational-flow__grid">
+          <article class="flow-stage" *ngFor="let stage of operationalFlowMetrics">
+            <header>
+              <h4>{{ stage.label }}</h4>
+              <small>{{ stage.description }}</small>
+            </header>
+            <div class="flow-stage__progress" role="progressbar" [attr.aria-valuenow]="stage.percentualConclusao" aria-valuemin="0" aria-valuemax="100">
+              <div class="flow-stage__progress-bar" [style.width.%]="stage.percentualConclusao"></div>
+            </div>
+            <div class="flow-stage__meta">
+              <span class="flow-stage__percent">{{ formatPercent(stage.percentualConclusao, 1) }} concluído</span>
+              <span class="flow-stage__threshold" *ngIf="stage.thresholdDias">Meta: até {{ stage.thresholdDias }} dias</span>
+            </div>
+            <div class="flow-stage__metrics">
+              <div>
+                <strong>{{ formatNumber(stage.concluido) }}</strong>
+                <small>Concluídos de {{ formatNumber(stage.base) }}</small>
+              </div>
+              <div>
+                <strong class="text-warning">{{ formatNumber(stage.pendente) }}</strong>
+                <small>Pendentes • Saldo {{ formatCurrency(stage.saldoPendente) }}</small>
+              </div>
+            </div>
+            <div class="flow-stage__timing">
+              <div>
+                <span class="timing-value">{{ formatNumber(stage.tempoMedioDias, 1) }} dias</span>
+                <small>Tempo médio de conclusão</small>
+              </div>
+              <div>
+                <span class="timing-value">{{ formatNumber(stage.tempoMedioPendente, 1) }} dias</span>
+                <small>Tempo médio em fila</small>
+              </div>
+            </div>
+            <div class="flow-stage__alerts" *ngIf="stage.thresholdDias">
+              <span class="flow-stage__critical flow-stage__critical--has" *ngIf="stage.criticos">
+                {{ formatNumber(stage.criticos) }} pendências críticas (até {{ formatNumber(stage.tempoMaxPendente, 1) }} dias)
+              </span>
+              <span class="flow-stage__critical" *ngIf="!stage.criticos">Sem pendências críticas</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="operational-alerts" role="region" aria-label="Alertas operacionais" *ngIf="operationalAlerts.length">
+        <h3>Pontos de atenção do processo</h3>
+        <div class="alert-grid">
+          <article class="alert-card" *ngFor="let alert of operationalAlerts">
+            <header>{{ alert.label }}</header>
+            <p>{{ alert.description }}</p>
+            <div class="alert-card__metrics">
+              <span><strong>{{ formatNumber(alert.pendentes) }}</strong> pendentes</span>
+              <span><strong>{{ formatCurrency(alert.saldoPendente) }}</strong> em saldo</span>
+            </div>
+            <div class="alert-card__timing">
+              <span>Tempo médio em fila: {{ formatNumber(alert.tempoMedioPendente, 1) }} dias</span>
+              <span *ngIf="alert.criticos">Críticos: {{ formatNumber(alert.criticos) }} ({{ formatNumber(alert.tempoMaxPendente, 1) }} dias máx)</span>
+              <span *ngIf="!alert.criticos">Sem críticos acima da meta</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="charts-grid" role="region" aria-label="Visões analíticas">
         <div class="chart-card">
           <header>Distribuição de títulos por UF</header>
@@ -156,6 +286,16 @@ interface EnrichedItem extends DashboardViewItem {
             [p-categories]="statusCategories"
             [p-height]="260"
             [p-options]="statusChartOptions">
+          </po-chart>
+        </div>
+        <div class="chart-card">
+          <header>Tempo médio por etapa (dias)</header>
+          <po-chart
+            [p-type]="chartTypeColumn"
+            [p-series]="tempoMedioSeries"
+            [p-categories]="tempoMedioCategories"
+            [p-height]="260"
+            [p-options]="tempoChartOptions">
           </po-chart>
         </div>
         <div class="chart-card">
@@ -383,6 +523,40 @@ export class TimelineRecebimentoComponent implements OnInit {
     }
   };
 
+  tempoMedioCategories: string[] = [];
+  tempoMedioSeries: Array<{ name: string; data: number[] }> = [];
+  tempoChartOptions: any = {
+    xAxis: {
+      labels: {
+        style: { fontSize: '11px' }
+      }
+    },
+    yAxis: {
+      title: { text: 'Dias' },
+      allowDecimals: true
+    },
+    tooltip: {
+      formatter: function(this: any) {
+        const value = Number(this.y ?? 0);
+        return `<b>${value.toFixed(1)}</b> dias em ${this.x}`;
+      }
+    },
+    plotOptions: {
+      column: {
+        dataLabels: {
+          enabled: true,
+          formatter: function(this: any) {
+            const value = Number(this.y ?? 0);
+            return value.toFixed(1);
+          }
+        }
+      }
+    }
+  };
+
+  operationalFlowMetrics: StageMetric[] = [];
+  operationalAlerts: OperationalAlert[] = [];
+
   pageSizeOptions: PoSelectOption[] = [
     { label: '10', value: 10 },
     { label: '20', value: 20 },
@@ -512,6 +686,8 @@ export class TimelineRecebimentoComponent implements OnInit {
   prioritySortAsc = false;
   agingSortProp: keyof DashboardViewItem = 'diasEmAtraso' as any;
   agingSortAsc = false;
+
+  private readonly msPerDay = 24 * 60 * 60 * 1000;
 
   private propertyLabelMap: Record<string, string> = {
     nf: 'NF',
@@ -909,10 +1085,15 @@ export class TimelineRecebimentoComponent implements OnInit {
         this.enrichedItems = this.items.map(item => this.enrichItem(item));
         this.computeSummary(this.enrichedItems);
         this.buildAnalytics(this.enrichedItems);
+        this.buildOperationalIntelligence(this.items, this.enrichedItems);
         this.loading = false;
       },
       error: () => {
         this.loading = false;
+        this.operationalFlowMetrics = [];
+        this.operationalAlerts = [];
+        this.tempoMedioCategories = [];
+        this.tempoMedioSeries = [];
       }
     });
   }
@@ -1141,6 +1322,274 @@ export class TimelineRecebimentoComponent implements OnInit {
     ];
   }
 
+  private buildOperationalIntelligence(rawItems: TimelineRecebimentoItem[], enrichedItems: EnrichedItem[]): void {
+    if (!rawItems.length || !enrichedItems.length) {
+      this.operationalFlowMetrics = [];
+      this.operationalAlerts = [];
+      this.tempoMedioCategories = [];
+      this.tempoMedioSeries = [];
+      return;
+    }
+
+    const contexts = rawItems.map((item, index) => this.createOperationalContext(item, enrichedItems[index]));
+    const metrics = this.computeOperationalStages(contexts);
+
+    this.operationalFlowMetrics = metrics;
+    this.tempoMedioCategories = metrics.map(stage => stage.shortLabel);
+    const tempoSeries = metrics.map(stage => this.round(stage.tempoMedioDias, 1));
+    this.tempoMedioSeries = metrics.length ? [{ name: 'Tempo médio', data: tempoSeries }] : [];
+    this.operationalAlerts = this.computeOperationalAlerts(metrics);
+  }
+
+  private createOperationalContext(item: TimelineRecebimentoItem, enriched?: EnrichedItem): ItemOperationalContext {
+    const aging = (item.aging || {}) as Record<string, any>;
+    const valor = Number(enriched?.valor ?? item.valor ?? 0);
+    const saldo = Number(enriched?.saldo ?? item.saldo ?? valor);
+    const diasEmAtraso = this.getDiasEmAtraso(aging);
+    const diasDesdeEmissao = Number(aging['diasDesdeEmissao'] ?? 0);
+    const diasDesdeRecebimento = Number(aging['diasDesdeRecebimento'] ?? 0);
+
+    const emissaoDate = this.parseDate(this.extractEventDate(item, 'EMISSAO'))
+      || this.parseDate(String(aging['dataEmissao'] ?? ''));
+    const recebimentoDate = this.parseDate(this.extractEventDate(item, 'RECEBIMENTO_CLIENTE'))
+      || this.parseDate(this.getDateFromKeys(item, ['dataRecebimentoCliente', 'dtRecebimentoCliente', 'recebimentoCliente', 'E1_ZZDTREC']))
+      || this.parseDate(String((item as any)?.logistica?.dataRecebimento ?? ''));
+    const entregaDate = this.parseDate(this.extractEventDate(item, 'BAIXA_CANHOTO'))
+      || this.parseDate(String((item as any)?.logistica?.dataRecebimento ?? ''))
+      || recebimentoDate;
+    const retornoCanhotoDate = this.parseDate(this.extractEventDate(item, 'RETORNO_CANHOTO'))
+      || this.parseDate(this.getDateFromKeys(item, ['dataRecebimentoCanhoto', 'dtRecebimentoCanhoto', 'retornoCanhoto', 'E1_ZZDTRET', 'dataRetornoCanhoto']));
+    const baixaFinanceiraDate = this.parseDate(this.extractEventDate(item, 'BAIXA_FINANCEIRA'))
+      || this.parseDate(this.getDateFromKeys(item, ['dataBaixaFinanceira', 'dataBaixa', 'dtBaixa', 'E1_ZZDTBAI']));
+
+    const statusRecebimento = this.normalizeEventStatus(this.extractEventStatus(item, 'RECEBIMENTO_CLIENTE'));
+    const statusBaixaLogistica = this.normalizeEventStatus(this.extractEventStatus(item, 'BAIXA_CANHOTO'));
+    const statusRetornoCanhoto = this.normalizeEventStatus(this.extractEventStatus(item, 'RETORNO_CANHOTO'));
+    const statusBaixaFinanceira = this.normalizeEventStatus(this.extractEventStatus(item, 'BAIXA_FINANCEIRA'));
+
+    const logisticStatus = this.normalizeBase((item as any)?.logistica?.statusEntrega);
+    const flagRecebido = this.normalizeBase(item.statusCanhotaRecebido);
+    const flagRetorno = this.normalizeBase(item.statusCanhotaRetorno);
+
+    const hasRecebimento = statusRecebimento === 'CONCLUIDO' || !!recebimentoDate;
+    const hasEntrega = statusBaixaLogistica === 'CONCLUIDO' || logisticStatus === 'ENTREGUE' || flagRecebido.includes('BAIX') || !!entregaDate;
+    const hasRetornoCanhoto = statusRetornoCanhoto === 'CONCLUIDO' || flagRetorno.includes('BAIX') || !!retornoCanhotoDate;
+    const hasBaixaFinanceira = statusBaixaFinanceira === 'CONCLUIDO' || this.isBaixado(item) || !!baixaFinanceiraDate;
+
+    return {
+      valor,
+      saldo,
+      diasEmAtraso,
+      diasDesdeEmissao,
+      diasDesdeRecebimento,
+      dates: {
+        emissao: emissaoDate,
+        recebimentoCliente: recebimentoDate,
+        entrega: entregaDate,
+        retornoCanhoto: retornoCanhotoDate,
+        baixaFinanceira: baixaFinanceiraDate,
+      },
+      flags: {
+        emissao: !!emissaoDate,
+        recebimentoCliente: hasRecebimento,
+        entrega: hasEntrega,
+        retornoCanhoto: hasRetornoCanhoto,
+        baixaFinanceira: hasBaixaFinanceira,
+      },
+    };
+  }
+
+  private computeOperationalStages(contexts: ItemOperationalContext[]): StageMetric[] {
+    if (!contexts.length) {
+      return [];
+    }
+
+    const total = contexts.length;
+    const stageMetrics: StageMetric[] = [];
+
+    const stage1Pending = contexts.filter(ctx => !ctx.flags.emissao);
+    stageMetrics.push({
+      id: 'emissao',
+      label: 'Emissão da Nota Fiscal',
+      shortLabel: 'Emissão',
+      description: 'Notas fiscais emitidas e liberadas para faturamento.',
+      base: total,
+      concluido: total - stage1Pending.length,
+      pendente: stage1Pending.length,
+      percentualConclusao: total ? ((total - stage1Pending.length) / total) * 100 : 0,
+      saldoPendente: this.sum(stage1Pending.map(ctx => ctx.saldo)),
+      tempoMedioDias: 0,
+      tempoMedioPendente: this.average(stage1Pending.map(ctx => this.differenceFromNow(ctx.dates.emissao))),
+      tempoMaxPendente: stage1Pending.length ? Math.max(...stage1Pending.map(ctx => this.differenceFromNow(ctx.dates.emissao))) : 0,
+      criticos: 0,
+      thresholdDias: 0,
+    });
+
+    const stage2Pending = contexts.filter(ctx => !ctx.flags.recebimentoCliente);
+    const stage2Concluded = contexts.length - stage2Pending.length;
+    const stage2Durations = contexts
+      .filter(ctx => ctx.flags.recebimentoCliente)
+      .map(ctx => this.differenceInDays(ctx.dates.recebimentoCliente, ctx.dates.emissao));
+    const stage2PendingDurations = stage2Pending.map(ctx => this.differenceFromNow(ctx.dates.emissao));
+    const stage2Threshold = 3;
+    stageMetrics.push({
+      id: 'recebimentoCliente',
+      label: 'Confirmação do recebimento do cliente',
+      shortLabel: 'Recebimento',
+      description: 'Cliente confirmou o recebimento da mercadoria.',
+      base: total,
+      concluido: stage2Concluded,
+      pendente: stage2Pending.length,
+      percentualConclusao: total ? (stage2Concluded / total) * 100 : 0,
+      saldoPendente: this.sum(stage2Pending.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage2Durations),
+      tempoMedioPendente: this.average(stage2PendingDurations),
+      tempoMaxPendente: stage2PendingDurations.length ? Math.max(...stage2PendingDurations) : 0,
+      criticos: stage2PendingDurations.filter(days => days > stage2Threshold).length,
+      thresholdDias: stage2Threshold,
+    });
+
+    const stage3Pending = contexts.filter(ctx => !ctx.flags.entrega);
+    const stage3Concluded = contexts.length - stage3Pending.length;
+    const stage3Durations = contexts
+      .filter(ctx => ctx.flags.entrega)
+      .map(ctx => this.differenceInDays(ctx.dates.entrega, ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage3PendingDurations = stage3Pending.map(ctx => this.differenceFromNow(ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage3Threshold = 5;
+    stageMetrics.push({
+      id: 'entregaLogistica',
+      label: 'Confirmação da entrega - Baixa logística',
+      shortLabel: 'Entrega',
+      description: 'Registro logístico de entrega do pedido.',
+      base: total,
+      concluido: stage3Concluded,
+      pendente: stage3Pending.length,
+      percentualConclusao: total ? (stage3Concluded / total) * 100 : 0,
+      saldoPendente: this.sum(stage3Pending.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage3Durations),
+      tempoMedioPendente: this.average(stage3PendingDurations),
+      tempoMaxPendente: stage3PendingDurations.length ? Math.max(...stage3PendingDurations) : 0,
+      criticos: stage3PendingDurations.filter(days => days > stage3Threshold).length,
+      thresholdDias: stage3Threshold,
+    });
+
+    const stage4Base = contexts.filter(ctx => ctx.flags.entrega);
+    const stage4ConcludedItems = stage4Base.filter(ctx => ctx.flags.retornoCanhoto);
+    const stage4PendingItems = stage4Base.filter(ctx => !ctx.flags.retornoCanhoto);
+    const stage4Durations = stage4ConcludedItems.map(ctx => this.differenceInDays(ctx.dates.retornoCanhoto, ctx.dates.entrega || ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage4PendingDurations = stage4PendingItems.map(ctx => this.differenceFromNow(ctx.dates.entrega || ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage4Threshold = 7;
+    stageMetrics.push({
+      id: 'aguardandoCanhoto',
+      label: 'Aguardando canhoto físico',
+      shortLabel: 'Aguardando canhoto',
+      description: 'Títulos entregues aguardando retorno do canhoto físico.',
+      base: stage4Base.length,
+      concluido: stage4ConcludedItems.length,
+      pendente: stage4PendingItems.length,
+      percentualConclusao: stage4Base.length ? (stage4ConcludedItems.length / stage4Base.length) * 100 : 0,
+      saldoPendente: this.sum(stage4PendingItems.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage4Durations),
+      tempoMedioPendente: this.average(stage4PendingDurations),
+      tempoMaxPendente: stage4PendingDurations.length ? Math.max(...stage4PendingDurations) : 0,
+      criticos: stage4PendingDurations.filter(days => days > stage4Threshold).length,
+      thresholdDias: stage4Threshold,
+    });
+
+    const stage5Base = contexts.filter(ctx => ctx.flags.retornoCanhoto);
+    const stage5ConcludedItems = stage5Base.filter(ctx => ctx.flags.baixaFinanceira);
+    const stage5PendingItems = stage5Base.filter(ctx => !ctx.flags.baixaFinanceira);
+    const stage5Durations = stage5ConcludedItems.map(ctx => this.differenceInDays(ctx.dates.baixaFinanceira, ctx.dates.retornoCanhoto || ctx.dates.entrega || ctx.dates.emissao));
+    const stage5PendingDurations = stage5PendingItems.map(ctx => this.differenceFromNow(ctx.dates.retornoCanhoto || ctx.dates.entrega || ctx.dates.emissao));
+    const stage5Threshold = 3;
+    stageMetrics.push({
+      id: 'borderoFinanceiro',
+      label: 'Montagem do borderô - Financeiro',
+      shortLabel: 'Borderô',
+      description: 'Títulos aptos para borderô aguardando baixa financeira.',
+      base: stage5Base.length,
+      concluido: stage5ConcludedItems.length,
+      pendente: stage5PendingItems.length,
+      percentualConclusao: stage5Base.length ? (stage5ConcludedItems.length / stage5Base.length) * 100 : 0,
+      saldoPendente: this.sum(stage5PendingItems.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage5Durations),
+      tempoMedioPendente: this.average(stage5PendingDurations),
+      tempoMaxPendente: stage5PendingDurations.length ? Math.max(...stage5PendingDurations) : 0,
+      criticos: stage5PendingDurations.filter(days => days > stage5Threshold).length,
+      thresholdDias: stage5Threshold,
+    });
+
+    const stage6PendingItems = contexts.filter(ctx => !ctx.flags.retornoCanhoto);
+    const stage6ConcludedItems = contexts.filter(ctx => ctx.flags.retornoCanhoto);
+    const stage6Durations = stage6ConcludedItems.map(ctx => this.differenceInDays(ctx.dates.retornoCanhoto, ctx.dates.emissao));
+    const stage6PendingDurations = stage6PendingItems.map(ctx => this.differenceFromNow(ctx.dates.entrega || ctx.dates.emissao));
+    const stage6Threshold = 9;
+    stageMetrics.push({
+      id: 'retornoCanhoto',
+      label: 'Retorno do canhoto físico - Baixa logística',
+      shortLabel: 'Retorno canhoto',
+      description: 'Controle do ciclo logístico completo até o retorno do canhoto.',
+      base: total,
+      concluido: stage6ConcludedItems.length,
+      pendente: stage6PendingItems.length,
+      percentualConclusao: total ? (stage6ConcludedItems.length / total) * 100 : 0,
+      saldoPendente: this.sum(stage6PendingItems.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage6Durations),
+      tempoMedioPendente: this.average(stage6PendingDurations),
+      tempoMaxPendente: stage6PendingDurations.length ? Math.max(...stage6PendingDurations) : 0,
+      criticos: stage6PendingDurations.filter(days => days > stage6Threshold).length,
+      thresholdDias: stage6Threshold,
+    });
+
+    const stage7PendingItems = contexts.filter(ctx => !ctx.flags.baixaFinanceira);
+    const stage7ConcludedItems = contexts.filter(ctx => ctx.flags.baixaFinanceira);
+    const stage7Durations = stage7ConcludedItems.map(ctx => this.differenceInDays(ctx.dates.baixaFinanceira, ctx.dates.retornoCanhoto || ctx.dates.entrega || ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage7PendingDurations = stage7PendingItems.map(ctx => this.differenceFromNow(ctx.dates.retornoCanhoto || ctx.dates.entrega || ctx.dates.recebimentoCliente || ctx.dates.emissao));
+    const stage7Threshold = 4;
+    stageMetrics.push({
+      id: 'baixaFinanceira',
+      label: 'Baixa do título no financeiro',
+      shortLabel: 'Baixa financeira',
+      description: 'Liquidação do título no contas a receber.',
+      base: total,
+      concluido: stage7ConcludedItems.length,
+      pendente: stage7PendingItems.length,
+      percentualConclusao: total ? (stage7ConcludedItems.length / total) * 100 : 0,
+      saldoPendente: this.sum(stage7PendingItems.map(ctx => ctx.saldo)),
+      tempoMedioDias: this.average(stage7Durations),
+      tempoMedioPendente: this.average(stage7PendingDurations),
+      tempoMaxPendente: stage7PendingDurations.length ? Math.max(...stage7PendingDurations) : 0,
+      criticos: stage7PendingDurations.filter(days => days > stage7Threshold).length,
+      thresholdDias: stage7Threshold,
+    });
+
+    return stageMetrics;
+  }
+
+  private computeOperationalAlerts(metrics: StageMetric[]): OperationalAlert[] {
+    return metrics
+      .filter(stage => stage.pendente > 0 && stage.id !== 'emissao')
+      .map(stage => ({
+        stageId: stage.id,
+        label: stage.label,
+        description: stage.description,
+        pendentes: stage.pendente,
+        saldoPendente: stage.saldoPendente,
+        tempoMedioPendente: stage.tempoMedioPendente,
+        tempoMaxPendente: stage.tempoMaxPendente,
+        criticos: stage.criticos,
+        percentualConclusao: stage.percentualConclusao,
+      }))
+      .sort((a, b) => {
+        const saldoDiff = b.saldoPendente - a.saldoPendente;
+        if (saldoDiff !== 0) {
+          return saldoDiff;
+        }
+        return b.tempoMedioPendente - a.tempoMedioPendente;
+      })
+      .slice(0, 3);
+  }
+
   private getAgingBuckets(): Array<{ label: string; min: number; max: number }> {
     return [
       { label: 'A vencer (0)', min: 0, max: 0 },
@@ -1358,6 +1807,88 @@ export class TimelineRecebimentoComponent implements OnInit {
       default:
         return normalized;
     }
+  }
+
+  private extractEventDate(item: TimelineRecebimentoItem, type: string): string {
+    const eventos = Array.isArray((item as any)?.eventos)
+      ? ((item as any).eventos as Array<{ tipo?: string; data?: string; dataOrdenacao?: string }>)
+      : [];
+    const target = eventos.find(evento => this.normalizeBase(evento?.tipo) === this.normalizeBase(type));
+    return target?.data || target?.dataOrdenacao || '';
+  }
+
+  private parseDate(value?: string | null): Date | null {
+    const raw = String(value ?? '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    let year: number;
+    let month: number;
+    let day: number;
+
+    if (/^\d{8}$/.test(raw)) {
+      year = Number(raw.substring(0, 4));
+      month = Number(raw.substring(4, 6));
+      day = Number(raw.substring(6, 8));
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const parts = raw.split('-');
+      year = Number(parts[0]);
+      month = Number(parts[1]);
+      day = Number(parts[2]);
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      const parts = raw.split('/');
+      day = Number(parts[0]);
+      month = Number(parts[1]);
+      year = Number(parts[2]);
+    } else {
+      return null;
+    }
+
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+
+    const date = new Date(year, month - 1, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private differenceInDays(end?: Date | null, start?: Date | null): number {
+    if (!end || !start) {
+      return 0;
+    }
+    const diff = end.getTime() - start.getTime();
+    if (!Number.isFinite(diff) || diff <= 0) {
+      return 0;
+    }
+    return diff / this.msPerDay;
+  }
+
+  private differenceFromNow(start?: Date | null): number {
+    if (!start) {
+      return 0;
+    }
+    return this.differenceInDays(new Date(), start);
+  }
+
+  private average(values: number[]): number {
+    const valid = values.filter(value => Number.isFinite(value) && value >= 0);
+    if (!valid.length) {
+      return 0;
+    }
+    return this.sum(valid) / valid.length;
+  }
+
+  private sum(values: number[]): number {
+    return values.reduce((acc, value) => acc + (Number.isFinite(value) ? value : 0), 0);
+  }
+
+  private round(value: number, decimals = 1): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
   }
 
   private extractEventStatus(item: TimelineRecebimentoItem, type: string): string {
